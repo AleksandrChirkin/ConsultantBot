@@ -45,23 +45,23 @@ public class Bot {
         }
     }
 
-    public String findForClothing(String txt){
+    private String findForClothing(String txt){
         return String.format("Clothing returns %s", txt);
     }
 
-    public String findForDrugs(String txt){
+    private String findForDrugs(String txt){
         return String.format("Drugs returns %s", txt);
     }
 
-    public String findForFood(String txt){
+    private String findForFood(String txt){
         return String.format("Food returns %s", txt);
     }
 
-    public String findForElectronics(String txt){
+    private String findForElectronics(String txt){
         return String.format("Electronics returns %s", txt);
     }
 
-    public String findForSports(String txt){
+    private String findForSports(String txt){
         return String.format("Sports returns %s", txt);
     }
 }
