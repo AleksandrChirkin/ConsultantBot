@@ -24,22 +24,29 @@ public class Bot {
                 states.update();
                 return "Введите интересующий Вас товар";
             }
-            states.replace(id, "");
-            states.update();
+            String result;
             switch (states.get(id)) {
                 case "/clothing":
-                    return findForClothing(request);
+                    result = findForClothing(request);
+                    break;
                 case "/drugs":
-                    return findForDrugs(request);
+                    result = findForDrugs(request);
+                    break;
                 case "/food":
-                    return findForFood(request);
+                    result = findForFood(request);
+                    break;
                 case "/electronics":
-                    return findForElectronics(request);
+                    result = findForElectronics(request);
+                    break;
                 case "/sports":
-                    return findForSports(request);
+                    result = findForSports(request);
+                    break;
                 default:
                     throw new IllegalStateException();
             }
+            states.replace(id, "");
+            states.update();
+            return result;
         } catch (Exception e){
             throw new RuntimeException(e);
         }

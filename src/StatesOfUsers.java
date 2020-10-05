@@ -4,22 +4,6 @@ import java.util.HashMap;
 public class StatesOfUsers {
     private final HashMap<Long, String> states;
 
-    public boolean containsKey(long id) {
-        return states.containsKey(id);
-    }
-
-    public String get(long id){
-        return states.get(id);
-    }
-
-    public void put(long id, String str){
-        states.put(id, str);
-    }
-
-    public void replace(long id, String str){
-        states.replace(id, str);
-    }
-
     public StatesOfUsers(){
         states = new HashMap<>();
         File file = new File("./src/statesOfUsers.txt");
@@ -34,6 +18,22 @@ public class StatesOfUsers {
         } catch (IOException e){
             throw new RuntimeException(e);
         }
+    }
+
+    public boolean containsKey(long id) {
+        return states.containsKey(id);
+    }
+
+    public String get(long id){
+        return states.get(id);
+    }
+
+    public void put(long id, String str){
+        states.put(id, str);
+    }
+
+    public void replace(long id, String str){
+        states.replace(id, str);
     }
 
     public void update() throws IOException
