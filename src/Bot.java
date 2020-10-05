@@ -1,74 +1,67 @@
-import java.util.Arrays;
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import org.json.JSONObject;
 
 public class Bot {
-    private final StatesOfUsers states;
-    private static final String[] categories = new String[]{"/clothing", "/drugs", "/food", "/electronics", "/sports"};
-
-    public Bot(){
-        states = new StatesOfUsers();
-    }
-
-    public String execute(String request, long id){
+    public String execute(String request) {
         try {
-            if (!states.containsKey(id) || states.get(id).equals("")) {
-                if (request.equals("/start") || request.equals("/help")) {
-                    return  "Бот-консультант. Выберите нужную категорию товаров:\n" +
-                            "/clothing - одежда\n/drugs - лекарства\n/food - еда\n" +
-                            "/electronics - электротехника\n/sport - товары для спорта";
-                }
-                if (Arrays.binarySearch(categories, request) == -1)
-                    return "Ошибка: Такой категории нет.";
-                if (!states.containsKey(id))
-                    states.put(id, "");
-                states.replace(id, request);
-                states.update();
-                return "Введите интересующий Вас товар";
-            }
-            String result;
-            switch (states.get(id)) {
-                case "/clothing":
-                    result = findForClothing(request);
-                    break;
-                case "/drugs":
-                    result = findForDrugs(request);
-                    break;
-                case "/food":
-                    result = findForFood(request);
-                    break;
-                case "/electronics":
-                    result = findForElectronics(request);
-                    break;
-                case "/sports":
-                    result = findForSports(request);
-                    break;
-                default:
-                    throw new IllegalStateException();
-            }
-            states.replace(id, "");
-            states.update();
-            return result;
+            return (request.equals("/start") || request.equals("/help"))
+                    ? "Бот-консультант по электронике. Ищет нужный Вам товар в ситилинке"
+                    : findForElectronics(request);
         } catch (Exception e){
-            throw new RuntimeException(e);
+            return ("Произошла ошибка.");
         }
     }
 
-    private String findForClothing(String txt){
-        return String.format("Clothing returns %s", txt);
+    private String findForElectronics(String request){
+        String[] lines = getResponse(request).split("\n");
+        StringBuilder result = new StringBuilder();
+        for (int i=0; i<3; i++){
+            result.append(processLine(lines[i]));
+            result.append("\n");
+        }
+        return result.toString();
     }
 
-    private String findForDrugs(String txt){
-        return String.format("Drugs returns %s", txt);
+    private String processLine(String line) {
+        line = line.replace("&quot;", "\"");
+        JSONObject json = new JSONObject(line);
+        return String.format("%s\nБренд:%s\nЦена:%d", json.get("shortName"), json.get("brandName"),
+                Integer.valueOf(json.get("price").toString()));
     }
 
-    private String findForFood(String txt){
-        return String.format("Food returns %s", txt);
-    }
-
-    private String findForElectronics(String txt){
-        return String.format("Electronics returns %s", txt);
-    }
-
-    private String findForSports(String txt){
-        return String.format("Sports returns %s", txt);
+    private String getResponse(String txt){
+        HttpURLConnection connection = null;
+        try {
+            URL url = new URL(String.format("https://www.citilink.ru/search/?text=%s", txt));
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type",
+                    "application/x-www-form-urlencoded");
+            connection.setRequestProperty("Content-Language", "en-US");
+            connection.setUseCaches(false);
+            connection.setDoOutput(true);
+            DataOutputStream wr = new DataOutputStream (connection.getOutputStream());
+            wr.close();
+            BufferedReader rd = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+            String line;
+            StringBuilder result = new StringBuilder();
+            String trigger = "data-params=\"";
+            while ((line = rd.readLine()) != null) {
+                if (line.contains(trigger)){
+                    result.append(line.substring(line.indexOf(trigger)+trigger.length()));
+                    result.append('\n');
+                }
+            }
+            rd.close();
+            return result.toString();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
     }
 }

@@ -22,12 +22,16 @@ public class TelegramBot extends TelegramLongPollingBot {
         Message msg = update.getMessage();
         String txt = msg.getText().toLowerCase();
         long id = msg.getChatId();
-        String botOutput = bot.execute(txt, id);
-        SendMessage s = new SendMessage();
-        s.setChatId(id);
-        s.setText(botOutput);
+        String botOutput = bot.execute(txt);
+        SendMessage botMessage = new SendMessage();
+        botMessage.setChatId(id);
+        botMessage.setText("Результаты поиска:\n"+botOutput);
+        SendMessage requestMessage = new SendMessage();
+        requestMessage.setChatId(id);
+        requestMessage.setText("Введите интересующий Вас товар");
         try {
-            execute(s);
+            execute(botMessage);
+            execute(requestMessage);
         } catch (TelegramApiException e) {
             throw new RuntimeException(e);
         }
