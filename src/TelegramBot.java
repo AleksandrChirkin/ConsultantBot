@@ -40,7 +40,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private synchronized void sendMsg(long id, String txt){
-        String response = bot.execute(id, txt);
+        String response = bot.execute(txt);
         SendMessage message = new SendMessage();
         message.enableMarkdown(true);
         message.setChatId(id);
@@ -83,6 +83,8 @@ public class TelegramBot extends TelegramLongPollingBot {
                 return;
             List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
             for (String category : filters.keySet()) {
+                if (filters.get(category).size() == 0)
+                    continue;
                 List<InlineKeyboardButton> currentRow = new ArrayList<>();
                 for (String filterItem: filters.get(category).keySet()) {
                     currentRow.add(new InlineKeyboardButton().setText(filterItem)

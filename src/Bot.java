@@ -7,25 +7,15 @@ import java.util.HashMap;
 import org.json.JSONObject;
 
 public class Bot {
-    private final StatesOfUsers states;
     private String response;
 
-    public Bot(){
-        states = new StatesOfUsers();
-    }
-
-    public String execute(long id, String request) {
+    public String execute(String request) {
         try {
             if (request.equals("/start") || request.equals("/clear")) {
-                if (request.equals("/clear"))
-                    states.clearRequestsHistory(id);
                 getResponse("");
                 return "Бот-консультант. Ищет нужный Вам товар в ситилинке\n" +
                         "Выберите нужную Вам категорию товаров:";
             }
-            if(!states.contains(id))
-                states.add(id);
-            states.updateRequests(id, request);
             getResponse(request);
             return (countSlashes(request) == 2) ? "Выберите нужный Вам тип товара" : findItems();
         } catch (Exception e){
@@ -106,10 +96,10 @@ public class Bot {
                         .replace("<span class=\"remove_filter\">×</span>", "");
                 item = item.replace(item.substring(item.indexOf("<span class=\"counter\""),
                         item.indexOf("</span>")+7), "");
-                String name = item.substring(item.indexOf("href=\"#\">")+8);
-                String referenceString = (item.contains("data-name\""))
-                        ? item.substring(item.indexOf("data-name=\"")+11)
-                        : item.substring(item.indexOf("data-value=\"")+12);
+                String name = item.substring(item.indexOf("href=\"#\">")+9);
+                String referenceString = (item.contains("data-name=\""))
+                        ? item.strip().substring(item.indexOf("data-name=\"")+11)
+                        : item.strip().substring(item.indexOf("data-value=\"")+12);
                 String reference = referenceString.substring(0, referenceString.indexOf("\""));
                 filter.put(name.strip(), reference);
             }
@@ -130,8 +120,11 @@ public class Bot {
                 lines.add(line.substring(line.indexOf(trigger) + trigger.length()));
         StringBuilder result = new StringBuilder();
         for (int i = 0; i < lines.size(); i+=2) {
-            result.append(processLine(lines.get(i)));
-            result.append("\n");
+            String processedLine = processLine(lines.get(i));
+            if (processedLine != null) {
+                result.append(processedLine);
+                result.append("\n");
+            }
         }
         return result.toString();
     }
@@ -139,8 +132,10 @@ public class Bot {
     private String processLine(String line) {
         line = line.replace("&quot;", "\"");
         JSONObject json = new JSONObject(line);
-        return String.format("%s\nБренд:%s\nЦена:%d", json.get("shortName"), json.get("brandName"),
-                Integer.valueOf(json.get("price").toString()));
+        return (json.has("price"))
+                ? String.format("*_%s_*\n*Бренд:*%s\n*Цена:*%d\n", json.get("shortName"), json.get("brandName"),
+                Integer.valueOf(json.get("price").toString()))
+                : null;
     }
 
     private void getResponse(String txt){
