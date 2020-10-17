@@ -45,6 +45,8 @@ public class TelegramBot extends TelegramLongPollingBot {
         message.enableMarkdown(true);
         message.setChatId(id);
         message.setText(response);
+        if (response.equals(""))
+            message.setText("Кажется, такого товара нет :(");
         if (!txt.equals("/start") && !txt.contains("https://www.citilink.ru/"))
             setButtons(message, txt);
         try{
