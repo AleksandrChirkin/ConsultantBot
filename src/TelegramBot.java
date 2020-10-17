@@ -39,13 +39,14 @@ public class TelegramBot extends TelegramLongPollingBot {
         sendMsg(id, txt);
     }
 
-    private synchronized void sendMsg(long id, String txt){
-        String response = bot.execute(txt);
+    private void sendMsg(long id, String txt){
+        String response = bot.execute(id, txt);
         SendMessage message = new SendMessage();
         message.enableMarkdown(true);
         message.setChatId(id);
         message.setText(response);
-        setButtons(message, txt);
+        if (!txt.equals("/start") && !txt.contains("https://www.citilink.ru/"))
+            setButtons(message, txt);
         try{
             execute(message);
         } catch (TelegramApiException e){
@@ -54,51 +55,22 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private void setButtons(SendMessage message, String initialRequest){
+        HashMap<String, String> categories = bot.relevantCategories(initialRequest);
+        if (categories == null || categories.size() == 0) {
+            message.setText("Кажется, товаров такой категории у нас нет");
+            return;
+        } else
+            message.setText("Мы нашли Ваш товар в следующих категориях:");
         InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
         message.setReplyMarkup(keyboardMarkup);
-        if (bot.countSlashes(initialRequest) <= 2) {
-            HashMap<String, String> categories = (initialRequest.equals("/start") ||
-                    initialRequest.equals("/clear"))
-                    ? bot.getCategories()
-                    : bot.getNavigation();
-            if (categories == null)
-                return;
-            List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
-            for (String category : categories.keySet()) {
-                List<InlineKeyboardButton> currentRow = new ArrayList<>();
-                keyboard.add(currentRow);
-                currentRow.add(new InlineKeyboardButton().setText(category)
-                        .setCallbackData(categories.get(category)
-                                .substring("https://www.citilink.ru/".length())));
-            }
-            if (!initialRequest.equals("/start")) {
-                List<InlineKeyboardButton> clearRow = new ArrayList<>();
-                keyboard.add(clearRow);
-                clearRow.add(new InlineKeyboardButton().setText("Вернуться в начало").setCallbackData("/clear"));
-            }
-            keyboardMarkup.setKeyboard(keyboard);
-        } else {
-            HashMap<String, HashMap<String, String>> filters = bot.getFilters();
-            if (filters == null)
-                return;
-            List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
-            for (String category : filters.keySet()) {
-                if (filters.get(category).size() == 0)
-                    continue;
-                List<InlineKeyboardButton> currentRow = new ArrayList<>();
-                for (String filterItem: filters.get(category).keySet()) {
-                    currentRow.add(new InlineKeyboardButton().setText(filterItem)
-                            .setCallbackData(filters.get(category).get(filterItem)));
-                }
-                keyboard.add(currentRow);
-            }
-            if (!initialRequest.equals("/start")) {
-                List<InlineKeyboardButton> clearRow = new ArrayList<>();
-                keyboard.add(clearRow);
-                clearRow.add(new InlineKeyboardButton().setText("Вернуться в начало").setCallbackData("/clear"));
-            }
-            keyboardMarkup.setKeyboard(keyboard);
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+        for (String category : categories.keySet()) {
+            List<InlineKeyboardButton> currentRow = new ArrayList<>();
+            keyboard.add(currentRow);
+            currentRow.add(new InlineKeyboardButton().setText(category)
+                        .setCallbackData(categories.get(category)));
         }
+        keyboardMarkup.setKeyboard(keyboard);
     }
 
     @Override
