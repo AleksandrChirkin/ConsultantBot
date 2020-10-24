@@ -38,6 +38,10 @@ public class StatesOfUsers {
         return requests.get(requests.size()-1);
     }
 
+    public List<String> getRequests(long id){
+        return states.get(id).requests;
+    }
+
     public void addRequest(long id, String str){
         states.get(id).updateRequests(str);
         update();

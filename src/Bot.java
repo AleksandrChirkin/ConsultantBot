@@ -3,6 +3,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import org.json.JSONObject;
 
@@ -21,8 +22,8 @@ public class Bot {
         try {
             String hostLink = "https://www.citilink.ru/";
             if (request.equals("/start"))
-                return "Бот-консультант. Ищет нужный Вам товар в ситилинке\n" +
-                        "Введите нужный Вам товар:";
+                return "Бот-консультант. Ищет нужный вам товар в ситилинке\n" +
+                        "Введите нужный вам товар:";
             if (request.contains(hostLink))
             {
                 getResponse(request.substring(hostLink.length()));
@@ -31,10 +32,17 @@ public class Bot {
             if (!states.containsKey(id))
                 states.put(id);
             states.addRequest(id, request);
+            List<String> requests = states.getRequests(id);
+            if (!isFirstRequest(id))
+                getResponse("search/?text="+String.join("+", requests));
             return "";
         } catch (Exception e){
             return ("Произошла ошибка. Попробуйте еще раз");
         }
+    }
+
+    public boolean isFirstRequest(long id){
+        return states.getRequests(id).size() <= 1;
     }
 
     public HashMap<String, String> relevantCategories(String request){

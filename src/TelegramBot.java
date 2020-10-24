@@ -47,7 +47,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         message.setText(response);
         if (response.equals(""))
             message.setText("Кажется, такого товара нет :(");
-        if (!txt.equals("/start") && !txt.contains("https://www.citilink.ru/"))
+        if (!txt.equals("/start") && !txt.contains("https://www.citilink.ru/") && bot.isFirstRequest(id))
             setButtons(message, txt);
         try{
             execute(message);
@@ -62,7 +62,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             message.setText("Кажется, товаров такой категории у нас нет");
             return;
         } else
-            message.setText("Мы нашли Ваш товар в следующих категориях:");
+            message.setText("Мы нашли ваш товар в следующих категориях:");
         InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
         message.setReplyMarkup(keyboardMarkup);
         List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
