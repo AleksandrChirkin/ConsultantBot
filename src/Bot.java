@@ -29,8 +29,8 @@ public class Bot {
                 return findItems(id);
             }
             if (!states.containsKey(id))
-                states.put(id, "");
-            states.replace(id, request);
+                states.put(id);
+            states.addRequest(id, request);
             return "";
         } catch (Exception e){
             return ("Произошла ошибка. Попробуйте еще раз");
@@ -81,7 +81,7 @@ public class Bot {
         StringBuilder result = new StringBuilder();
         for (int i = 0; i < lines.size(); i+=2) {
             String processedLine = processLine(lines.get(i));
-            String[] words = states.get(id).split(" ");
+            String[] words = states.getLastRequest(id).split(" ");
             for (String word: words)
                 if (processedLine != null &&
                         processedLine.toLowerCase().contains(word.toLowerCase())) {
@@ -126,9 +126,8 @@ public class Bot {
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
-            if (connection != null) {
+            if (connection != null)
                 connection.disconnect();
-            }
         }
     }
 }

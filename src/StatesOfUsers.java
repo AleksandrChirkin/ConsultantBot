@@ -1,19 +1,23 @@
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.*;
 import java.util.HashMap;
+import java.util.List;
 
 public class StatesOfUsers {
-    private final HashMap<Long, String> states;
+    private final HashMap<Long, User> states;
 
     public StatesOfUsers(){
         states = new HashMap<>();
         File file = new File("./src/statesOfUsers.txt");
         try {
             BufferedReader reader = new BufferedReader(new FileReader(file));
-            String line = reader.readLine();
-            while (line != null) {
-                states.put(Long.valueOf(line.substring(0, line.indexOf("—"))),
-                        line.substring(line.indexOf("—") + 1));
-                line = reader.readLine();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                StringReader stringReader = new StringReader(line);
+                ObjectMapper mapper = new ObjectMapper();
+                User user = mapper.readValue(stringReader, User.class);
+                states.put(user.id, user);
             }
         } catch (IOException e){
             throw new RuntimeException(e);
@@ -24,17 +28,18 @@ public class StatesOfUsers {
         return states.containsKey(id);
     }
 
-    public String get(long id){
-        return states.get(id);
-    }
-
-    public void put(long id, String str){
-        states.put(id, str);
+    public void put(long id){
+        states.put(id, new User(id));
         update();
     }
 
-    public void replace(long id, String str){
-        states.replace(id, str);
+    public String getLastRequest(long id){
+        List<String> requests = states.get(id).requests;
+        return requests.get(requests.size()-1);
+    }
+
+    public void addRequest(long id, String str){
+        states.get(id).updateRequests(str);
         update();
     }
 
@@ -43,8 +48,13 @@ public class StatesOfUsers {
         try {
             File file = new File("./src/statesOfUsers.txt");
             BufferedWriter writer = new BufferedWriter(new FileWriter(file, false));
-            for (long id : states.keySet())
-                writer.write(String.format("%d—%s\n", id, states.get(id)));
+            for (User user : states.values())
+            {
+                StringWriter stringWriter = new StringWriter();
+                ObjectMapper mapper = new ObjectMapper();
+                mapper.writeValue(stringWriter, user);
+                writer.write(stringWriter.toString());
+            }
             writer.close();
         } catch (IOException e){
             throw new RuntimeException(e);

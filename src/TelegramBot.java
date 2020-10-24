@@ -8,16 +8,16 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
 public class TelegramBot extends TelegramLongPollingBot {
-    private static Bot bot;
+    private final Bot bot = new Bot();
 
-    public static void main(String[] a) throws TelegramApiException {
-        bot = new Bot();
+    public static void main(String[] a) throws TelegramApiRequestException {
         ApiContextInitializer.init();
         TelegramBotsApi botsApi = new TelegramBotsApi();
         botsApi.registerBot(new TelegramBot());
