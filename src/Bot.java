@@ -1,9 +1,12 @@
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.json.JSONObject;
 
@@ -15,7 +18,7 @@ public class Bot {
     public Bot(){
         getResponse("");
         states = new StatesOfUsers();
-        categories = getCategories();
+        categories = getAllCategories();
     }
 
     public String execute(long id, String request) {
@@ -33,21 +36,31 @@ public class Bot {
                 states.put(id);
             states.addRequest(id, request);
             List<String> requests = states.getRequests(id);
-            if (!isFirstRequest(id))
-                getResponse("search/?text="+String.join("+", requests));
-            return "";
+            HashMap<String, String> categories;
+            if (!isTheFirstRequest(id)) {
+                getResponse(String.format("search/?text=%s",
+                        String.join(" ", requests)));
+                categories = getSubcategories();
+            } else
+                categories = getRelevantCategories(request);
+            states.updateCategories(id, categories);
+            return categories.size() == 0
+                    ? "Кажется, товаров такой категории у нас нет"
+                    : "Мы нашли ваш товар в следующих категориях:";
         } catch (Exception e){
-            return ("Произошла ошибка. Попробуйте еще раз");
+            return "Произошла ошибка. Попробуйте еще раз";
         }
     }
 
-    public boolean isFirstRequest(long id){
-        return states.getRequests(id).size() <= 1;
+    public boolean isTheFirstRequest(long id){
+        return !states.containsKey(id) || states.getRequests(id).size() <= 1;
     }
 
-    public HashMap<String, String> relevantCategories(String request){
-        if (categories == null)
-            return null;
+    public Map<String, String> getCategories(long id){
+        return states.getCategories(id);
+    }
+
+    private HashMap<String, String> getRelevantCategories(String request){
         HashMap<String, String> result = new HashMap<>();
         String[] words = request.split(" ");
         for (String category: categories.keySet())
@@ -58,10 +71,7 @@ public class Bot {
         return result;
     }
 
-
-    private HashMap<String, String> getCategories(){
-        if (response == null)
-            return null;
+    private HashMap<String, String> getAllCategories(){
         String categoriesString = response.substring(response.indexOf("<menu"));
         String[] allLines = categoriesString.substring(0, categoriesString.indexOf("</menu")).split("\n");
         HashMap<String, String> categories = new HashMap<>();
@@ -79,6 +89,25 @@ public class Bot {
         return categories;
     }
 
+    private HashMap<String, String> getSubcategories(){
+        String categoriesString = response.substring(response.indexOf("Найдено в категориях:"));
+        String[] allLines = categoriesString.substring(0, categoriesString.indexOf("</div>")).split("\n");
+        HashMap<String, String> categories = new HashMap<>();
+        String currentReference = "";
+        for (String line: allLines){
+            if (line.contains("data-search-text"))
+                continue;
+            if (line.contains("href")) {
+                String link = line.substring(line.indexOf("\"")+1);
+                currentReference = link.substring(0, link.indexOf("\"")).replace("&amp;", "&");
+            } else if (!line.contains(">")){
+                categories.put(line.strip(), String.format("https://www.citilink.ru%s", currentReference));
+                currentReference = "";
+            }
+        }
+        return categories;
+    }
+
     private String findItems(long id) {
         String[] allLines = response.split("\n");
         ArrayList<String> lines = new ArrayList<>();
@@ -86,24 +115,25 @@ public class Bot {
         for (String line: allLines)
             if (line.contains(trigger))
                 lines.add(line.substring(line.indexOf(trigger) + trigger.length()));
-        StringBuilder result = new StringBuilder();
+        StringBuilder builder = new StringBuilder();
         for (int i = 0; i < lines.size(); i+=2) {
-            String processedLine = processLine(lines.get(i));
+            String processedLine = getItemInfo(lines.get(i));
             String[] words = states.getLastRequest(id).split(" ");
             for (String word: words)
                 if (processedLine != null &&
                         processedLine.toLowerCase().contains(word.toLowerCase())) {
-                    result.append(processedLine);
-                    result.append("\n");
+                    builder.append(processedLine);
+                    builder.append("\n");
                 }
         }
-        return result.toString();
+        String result = builder.toString();
+        return result.equals("") ? "Кажется, такого товара нет :(" : result;
     }
 
-    private String processLine(String line) {
+    private String getItemInfo(String line) {
         line = line.replace("&quot;", "\"");
         JSONObject json = new JSONObject(line);
-        return (json.has("price"))
+        return json.has("price")
                 ? String.format("*_%s_*\n*Бренд:*%s\n*Цена:*%d\n", json.get("shortName"), json.get("brandName"),
                 Integer.valueOf(json.get("price").toString()))
                 : null;
@@ -112,7 +142,7 @@ public class Bot {
     private void getResponse(String txt){
         HttpURLConnection connection = null;
         try {
-            URL url = new URL(String.format("https://www.citilink.ru/%s", txt));
+            URL url = new URL(String.format("https://www.citilink.ru/%s", parseQuery(txt)));
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("POST");
             connection.setRequestProperty("Content-Type",
@@ -137,5 +167,15 @@ public class Bot {
             if (connection != null)
                 connection.disconnect();
         }
+    }
+
+    private String parseQuery(String originalQuery){
+        String separator = "search/?text=";
+        int index = originalQuery.indexOf(separator);
+        if (index != -1) {
+            String query = originalQuery.substring(separator.length());
+            return String.format("%s%s", separator, URLEncoder.encode(query, StandardCharsets.UTF_8));
+        }
+        return originalQuery;
     }
 }

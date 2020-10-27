@@ -3,13 +3,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.*;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class StatesOfUsers {
     private final HashMap<Long, User> states;
 
     public StatesOfUsers(){
         states = new HashMap<>();
-        File file = new File("./src/statesOfUsers.txt");
+        File file = new File("./src/statesOfUsers.json");
         try {
             BufferedReader reader = new BufferedReader(new FileReader(file));
             String line;
@@ -33,6 +34,15 @@ public class StatesOfUsers {
         update();
     }
 
+    public void updateCategories(long id, HashMap<String, String> categories){
+        states.get(id).setCategories(categories);
+        update();
+    }
+
+    public Map<String, String> getCategories(long id){
+        return states.get(id).categories;
+    }
+
     public String getLastRequest(long id){
         List<String> requests = states.get(id).requests;
         return requests.get(requests.size()-1);
@@ -47,10 +57,10 @@ public class StatesOfUsers {
         update();
     }
 
-    public void update()
+    private void update()
     {
         try {
-            File file = new File("./src/statesOfUsers.txt");
+            File file = new File("./src/statesOfUsers.json");
             BufferedWriter writer = new BufferedWriter(new FileWriter(file, false));
             for (User user : states.values())
             {
@@ -58,6 +68,7 @@ public class StatesOfUsers {
                 ObjectMapper mapper = new ObjectMapper();
                 mapper.writeValue(stringWriter, user);
                 writer.write(stringWriter.toString());
+                writer.write("\n");
             }
             writer.close();
         } catch (IOException e){

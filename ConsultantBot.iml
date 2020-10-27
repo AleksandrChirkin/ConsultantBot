@@ -8,5 +8,6 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="lib" level="project" />
+    <orderEntry type="library" name="org.telegram:telegrambots-abilities:4.9.1" level="project" />
   </component>
 </module>

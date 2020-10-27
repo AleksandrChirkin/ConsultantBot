@@ -11,8 +11,8 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class TelegramBot extends TelegramLongPollingBot {
     private final Bot bot = new Bot();
@@ -36,19 +36,17 @@ public class TelegramBot extends TelegramLongPollingBot {
             txt = msg.getText().toLowerCase();
             id = msg.getChatId();
         }
-        sendMsg(id, txt);
+        String response = bot.execute(id, txt);
+        sendMsg(id, txt, response);
     }
 
-    private void sendMsg(long id, String txt){
-        String response = bot.execute(id, txt);
+    private void sendMsg(long id, String txt, String response){
         SendMessage message = new SendMessage();
         message.enableMarkdown(true);
         message.setChatId(id);
         message.setText(response);
-        if (response.equals(""))
-            message.setText("Кажется, такого товара нет :(");
-        if (!txt.equals("/start") && !txt.contains("https://www.citilink.ru/") && bot.isFirstRequest(id))
-            setButtons(message, txt);
+        if (!txt.equals("/start") && !txt.contains("https://www.citilink.ru/"))
+            setButtons(message, id);
         try{
             execute(message);
         } catch (TelegramApiException e){
@@ -56,13 +54,8 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
-    private void setButtons(SendMessage message, String initialRequest){
-        HashMap<String, String> categories = bot.relevantCategories(initialRequest);
-        if (categories == null || categories.size() == 0) {
-            message.setText("Кажется, товаров такой категории у нас нет");
-            return;
-        } else
-            message.setText("Мы нашли ваш товар в следующих категориях:");
+    private void setButtons(SendMessage message, long id){
+        Map<String, String> categories = bot.getCategories(id);
         InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
         message.setReplyMarkup(keyboardMarkup);
         List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
