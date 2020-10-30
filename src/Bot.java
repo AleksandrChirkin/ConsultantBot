@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -23,13 +24,17 @@ public class Bot {
 
     public String execute(long id, String request) {
         try {
-            String hostLink = "https://www.citilink.ru/";
+            String hostLink = "citilink.ru";
             if (request.equals("/start"))
                 return "Бот-консультант. Ищет нужный вам товар в ситилинке\n" +
                         "Введите нужный вам товар:";
             if (request.contains(hostLink))
             {
-                getResponse(request.substring(hostLink.length()));
+                String query = request.substring(request.indexOf(hostLink)+hostLink.length());
+                getResponse(isTheFirstRequest(id)
+                        ? query
+                        : String.format("%s&text=%s", query,
+                        String.join(" ", request)));
                 return findItems(id);
             }
             if (!states.containsKey(id))
@@ -38,26 +43,28 @@ public class Bot {
             List<String> requests = states.getRequests(id);
             HashMap<String, String> categories;
             if (!isTheFirstRequest(id)) {
-                getResponse(String.format("search/?text=%s",
+                getResponse(String.format("/search/?text=%s",
                         String.join(" ", requests)));
                 categories = getSubcategories();
             } else
                 categories = getRelevantCategories(request);
+            if (categories.size() == 0)
+                return "Кажется, товаров такой категории у нас нет";
             states.updateCategories(id, categories);
-            return categories.size() == 0
-                    ? "Кажется, товаров такой категории у нас нет"
-                    : "Мы нашли ваш товар в следующих категориях:";
+            return "Мы нашли ваш товар в следующих категориях:";
         } catch (Exception e){
             return "Произошла ошибка. Попробуйте еще раз";
         }
     }
 
-    public boolean isTheFirstRequest(long id){
+    private boolean isTheFirstRequest(long id){
         return !states.containsKey(id) || states.getRequests(id).size() <= 1;
     }
 
-    public Map<String, String> getCategories(long id){
-        return states.getCategories(id);
+    public Map<String, String> getCategories(long id, String request){
+        return !request.equals("/start") && !request.contains("citilink.ru")
+                ? states.getCategories(id)
+                : null;
     }
 
     private HashMap<String, String> getRelevantCategories(String request){
@@ -101,7 +108,9 @@ public class Bot {
                 String link = line.substring(line.indexOf("\"")+1);
                 currentReference = link.substring(0, link.indexOf("\"")).replace("&amp;", "&");
             } else if (!line.contains(">")){
-                categories.put(line.strip(), String.format("https://www.citilink.ru%s", currentReference));
+                String reference = URLDecoder.decode(currentReference, StandardCharsets.UTF_8);
+                categories.put(line.strip(), String.format("citilink.ru%s",
+                        reference.substring(0, reference.indexOf("&text"))));
                 currentReference = "";
             }
         }
@@ -142,7 +151,7 @@ public class Bot {
     private void getResponse(String txt){
         HttpURLConnection connection = null;
         try {
-            URL url = new URL(String.format("https://www.citilink.ru/%s", parseQuery(txt)));
+            URL url = new URL(String.format("https://www.citilink.ru%s", parseQuery(txt)));
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("POST");
             connection.setRequestProperty("Content-Type",
@@ -174,7 +183,7 @@ public class Bot {
         int index = originalQuery.indexOf(separator);
         if (index != -1) {
             String query = originalQuery.substring(separator.length());
-            return String.format("%s%s", separator, URLEncoder.encode(query, StandardCharsets.UTF_8));
+            return String.format("/%s%s", separator, URLEncoder.encode(query, StandardCharsets.UTF_8));
         }
         return originalQuery;
     }

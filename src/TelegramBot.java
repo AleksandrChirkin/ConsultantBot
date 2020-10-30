@@ -25,28 +25,27 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
-        String txt;
+        String userMessage;
         long id;
         if (update.hasCallbackQuery()){
             CallbackQuery query = update.getCallbackQuery();
-            txt = query.getData();
+            userMessage = query.getData();
             id = query.getMessage().getChatId();
         } else {
             Message msg = update.getMessage();
-            txt = msg.getText().toLowerCase();
+            userMessage = msg.getText().toLowerCase();
             id = msg.getChatId();
         }
-        String response = bot.execute(id, txt);
-        sendMsg(id, txt, response);
+        String response = bot.execute(id, userMessage);
+        sendResponse(id, userMessage, response);
     }
 
-    private void sendMsg(long id, String txt, String response){
+    private void sendResponse(long id, String userMessage, String response){
         SendMessage message = new SendMessage();
         message.enableMarkdown(true);
         message.setChatId(id);
         message.setText(response);
-        if (!txt.equals("/start") && !txt.contains("https://www.citilink.ru/"))
-            setButtons(message, id);
+        setButtons(message, id, userMessage);
         try{
             execute(message);
         } catch (TelegramApiException e){
@@ -54,8 +53,10 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
-    private void setButtons(SendMessage message, long id){
-        Map<String, String> categories = bot.getCategories(id);
+    private void setButtons(SendMessage message, long id, String userMessage){
+        Map<String, String> categories = bot.getCategories(id, userMessage);
+        if (categories == null)
+            return;
         InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
         message.setReplyMarkup(keyboardMarkup);
         List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
