@@ -34,13 +34,17 @@ public class StatesOfUsers {
         update();
     }
 
-    public void updateCategories(long id, HashMap<String, String> categories){
-        states.get(id).setCategories(categories);
+    public void updateCategories(long id, HashMap<String, String> newCategories){
+        states.get(id).categories = newCategories;
         update();
     }
 
     public Map<String, String> getCategories(long id){
         return states.get(id).categories;
+    }
+
+    public void clearCategories(long id){
+        states.get(id).categories.clear();
     }
 
     public String getLastRequest(long id){
@@ -53,7 +57,21 @@ public class StatesOfUsers {
     }
 
     public void addRequest(long id, String str){
-        states.get(id).updateRequests(str);
+        states.get(id).requests.add(str);
+        update();
+    }
+
+    public void removeRequest(long id, String str){
+        states.get(id).requests.remove(str);
+        update();
+    }
+
+    public boolean getItemsFound(long id){
+        return states.get(id).areItemsFound;
+    }
+
+    public void setItemsFound(long id, boolean itemsFound){
+        states.get(id).areItemsFound = itemsFound;
         update();
     }
 

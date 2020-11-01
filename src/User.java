@@ -11,6 +11,7 @@ public class User {
     public long id;
     public List<String> requests;
     public Map<String, String> categories;
+    public boolean areItemsFound;
     public User(){}
 
     @JsonIgnore
@@ -18,13 +19,5 @@ public class User {
         this.id = id;
         requests = new ArrayList<>();
         categories = new HashMap<>();
-    }
-
-    public void updateRequests(String newRequest){
-        requests.add(newRequest);
-    }
-
-    public void setCategories(HashMap<String, String> newCategories){
-        categories = newCategories;
     }
 }

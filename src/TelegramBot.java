@@ -54,18 +54,37 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private void setButtons(SendMessage message, long id, String userMessage){
-        Map<String, String> categories = bot.getCategories(id, userMessage);
-        if (categories == null)
-            return;
         InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
-        message.setReplyMarkup(keyboardMarkup);
-        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
-        for (String category : categories.keySet()) {
-            List<InlineKeyboardButton> currentRow = new ArrayList<>();
-            keyboard.add(currentRow);
-            currentRow.add(new InlineKeyboardButton().setText(category)
-                        .setCallbackData(categories.get(category)));
+        List<List<InlineKeyboardButton>> keyboard;
+        if (!bot.areItemsFound(id)) {
+            List<String> previousRequests = bot.getRequests(id);
+            if (previousRequests == null || previousRequests.isEmpty())
+                return;
+            keyboard = new ArrayList<>();
+            List<InlineKeyboardButton> row = new ArrayList<>();
+            keyboard.add(row);
+            for (String request: previousRequests)
+                row.add(new InlineKeyboardButton().setText(request)
+                        .setCallbackData(String.format("cut %s", request)));
+        } else {
+            Map<String, String> categories = bot.getCategories(id, userMessage);
+            keyboard = new ArrayList<>();
+            if (categories == null) {
+                List<InlineKeyboardButton> currentRow = new ArrayList<>();
+                keyboard.add(currentRow);
+                currentRow.add(new InlineKeyboardButton().setText("Посмотреть все")
+                        .setCallbackData("citilink.ru"));
+                return;
+            } else {
+                for (String category : categories.keySet()) {
+                    List<InlineKeyboardButton> currentRow = new ArrayList<>();
+                    keyboard.add(currentRow);
+                    currentRow.add(new InlineKeyboardButton().setText(category)
+                            .setCallbackData(categories.get(category)));
+                }
+            }
         }
+        message.setReplyMarkup(keyboardMarkup);
         keyboardMarkup.setKeyboard(keyboard);
     }
 

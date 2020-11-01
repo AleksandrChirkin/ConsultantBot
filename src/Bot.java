@@ -34,36 +34,53 @@ public class Bot {
                 getResponse(isTheFirstRequest(id)
                         ? query
                         : String.format("%s&text=%s", query,
-                        String.join(" ", request)));
+                        String.join(" ", getRequests(id))));
                 return findItems(id);
             }
             if (!states.containsKey(id))
                 states.put(id);
-            states.addRequest(id, request);
-            List<String> requests = states.getRequests(id);
+            if (request.contains("cut")){
+                String cutRequest = request.substring(4);
+                states.removeRequest(id, cutRequest);
+            } else
+                states.addRequest(id, request);
+            String requests = String.join(" ", getRequests(id));
             HashMap<String, String> categories;
             if (!isTheFirstRequest(id)) {
-                getResponse(String.format("/search/?text=%s",
-                        String.join(" ", requests)));
+                getResponse(String.format("/search/?text=%s", requests));
                 categories = getSubcategories();
             } else
-                categories = getRelevantCategories(request);
-            if (categories.size() == 0)
+                categories = getRelevantCategories(requests);
+            if (categories.size() == 0) {
+                states.setItemsFound(id, isTheFirstRequest(id));
                 return "Кажется, товаров такой категории у нас нет";
+            }
+            states.setItemsFound(id, true);
             states.updateCategories(id, categories);
             return "Мы нашли ваш товар в следующих категориях:";
         } catch (Exception e){
-            return "Произошла ошибка. Попробуйте еще раз";
+            states.setItemsFound(id, false);
+            return "Произошла ошибка.\nПопробуйте еще раз или уберите один из Ваших предыдущих запросов";
         }
     }
 
     private boolean isTheFirstRequest(long id){
-        return !states.containsKey(id) || states.getRequests(id).size() <= 1;
+        return !states.containsKey(id) || getRequests(id).size() <= 1;
     }
 
     public Map<String, String> getCategories(long id, String request){
         return !request.equals("/start") && !request.contains("citilink.ru")
                 ? states.getCategories(id)
+                : null;
+    }
+
+    public boolean areItemsFound(long id){
+        return states.containsKey(id) && states.getItemsFound(id);
+    }
+
+    public List<String> getRequests(long id){
+        return states.containsKey(id)
+                ? states.getRequests(id)
                 : null;
     }
 
@@ -136,14 +153,17 @@ public class Bot {
                 }
         }
         String result = builder.toString();
-        return result.equals("") ? "Кажется, такого товара нет :(" : result;
+        states.setItemsFound(id, !result.isEmpty());
+        return result.equals("")
+                ? "Кажется, такого товара нет :(\nУберите один из ваших запросов"
+                : result;
     }
 
     private String getItemInfo(String line) {
         line = line.replace("&quot;", "\"");
         JSONObject json = new JSONObject(line);
         return json.has("price")
-                ? String.format("*_%s_*\n*Бренд:*%s\n*Цена:*%d\n", json.get("shortName"), json.get("brandName"),
+                ? String.format("_%s_\n*Бренд:*%s\n*Цена:*%d\n", json.get("shortName"), json.get("brandName"),
                 Integer.valueOf(json.get("price").toString()))
                 : null;
     }
@@ -179,11 +199,12 @@ public class Bot {
     }
 
     private String parseQuery(String originalQuery){
-        String separator = "search/?text=";
+        String separator = "text=";
         int index = originalQuery.indexOf(separator);
         if (index != -1) {
-            String query = originalQuery.substring(separator.length());
-            return String.format("/%s%s", separator, URLEncoder.encode(query, StandardCharsets.UTF_8));
+            String query = originalQuery.substring(index+separator.length());
+            return String.format("/%s%s", originalQuery.substring(0, index+separator.length()),
+                    URLEncoder.encode(query, StandardCharsets.UTF_8));
         }
         return originalQuery;
     }
