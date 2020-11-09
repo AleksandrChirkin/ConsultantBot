@@ -34,22 +34,42 @@ public class StatesOfUsers {
         update();
     }
 
-    public void updateCategories(long id, HashMap<String, String> newCategories){
-        states.get(id).categories = newCategories;
+    public void addLink(long id, String link){
+        states.get(id).previousLinks.add(link);
         update();
     }
 
-    public Map<String, String> getCategories(long id){
-        return states.get(id).categories;
+    public String getCurrentRequest(long id){
+        return String.join(" ", getRequests(id));
     }
 
-    public void clearCategories(long id){
-        states.get(id).categories.clear();
+    public boolean hasCategoryLink(long id){
+        User user = states.get(id);
+        return user.requests.size() == 1 && user.previousLinks.size() >= 1;
     }
 
-    public String getLastRequest(long id){
-        List<String> requests = states.get(id).requests;
-        return requests.get(requests.size()-1);
+    public boolean hasSubcategoryLink(long id){
+        User user = states.get(id);
+        return user.requests.size() >= 2 && user.previousLinks.size() == 2;
+    }
+
+    public String getCurrentRequestLink(long id){
+        List<String> links = states.get(id).previousLinks;
+        return links.get(links.size()-1);
+    }
+
+    public void updateCategoriesLinks(long id, HashMap<String, String> newCategories){
+        states.get(id).categoriesLinks = newCategories;
+        update();
+    }
+
+    public Map<String, String> getCategoriesLinks(long id){
+        return states.get(id).categoriesLinks;
+    }
+
+    public void clearCategoriesLinks(long id){
+        states.get(id).categoriesLinks.clear();
+        update();
     }
 
     public List<String> getRequests(long id){
@@ -62,7 +82,12 @@ public class StatesOfUsers {
     }
 
     public void removeRequest(long id, String str){
-        states.get(id).requests.remove(str);
+        User user = states.get(id);
+        user.requests.remove(str);
+        if (user.requests.size() < 2) {
+            List<String> links = user.previousLinks;
+            links.remove(links.size() - 1);
+        }
         update();
     }
 

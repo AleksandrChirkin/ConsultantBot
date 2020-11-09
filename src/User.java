@@ -10,7 +10,8 @@ import java.util.Map;
 public class User {
     public long id;
     public List<String> requests;
-    public Map<String, String> categories;
+    public Map<String, String> categoriesLinks;
+    public List<String> previousLinks;
     public boolean areItemsFound;
     public User(){}
 
@@ -18,6 +19,7 @@ public class User {
     public User(long id){
         this.id = id;
         requests = new ArrayList<>();
-        categories = new HashMap<>();
+        categoriesLinks = new HashMap<>();
+        previousLinks = new ArrayList<>();
     }
 }

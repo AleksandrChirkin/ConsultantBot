@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 public class TelegramBot extends TelegramLongPollingBot {
-    private final Bot bot = new Bot();
+    private final Bot bot = new Bot(new DataLoader());
 
     public static void main(String[] a) throws TelegramApiRequestException {
         ApiContextInitializer.init();
@@ -69,13 +69,9 @@ public class TelegramBot extends TelegramLongPollingBot {
         } else {
             Map<String, String> categories = bot.getCategories(id, userMessage);
             keyboard = new ArrayList<>();
-            if (categories == null) {
-                List<InlineKeyboardButton> currentRow = new ArrayList<>();
-                keyboard.add(currentRow);
-                currentRow.add(new InlineKeyboardButton().setText("Посмотреть все")
-                        .setCallbackData("citilink.ru"));
+            if (categories == null)
                 return;
-            } else {
+            else {
                 for (String category : categories.keySet()) {
                     List<InlineKeyboardButton> currentRow = new ArrayList<>();
                     keyboard.add(currentRow);

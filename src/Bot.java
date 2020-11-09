@@ -1,8 +1,4 @@
-import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.net.URLDecoder;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -12,65 +8,48 @@ import java.util.Map;
 import org.json.JSONObject;
 
 public class Bot {
-    private String response;
+    private final DataLoader loader;
     private final HashMap<String, String> categories;
     private final StatesOfUsers states;
+    private static final String hostLink = "citilink.ru";
 
-    public Bot(){
-        getResponse("");
+    public Bot(DataLoader dataLoader){
+        loader = dataLoader;
         states = new StatesOfUsers();
         categories = getAllCategories();
     }
 
     public String execute(long id, String request) {
         try {
-            String hostLink = "citilink.ru";
             if (request.equals("/start"))
                 return "Бот-консультант. Ищет нужный вам товар в ситилинке\n" +
                         "Введите нужный вам товар:";
             if (request.contains(hostLink))
-            {
-                String query = request.substring(request.indexOf(hostLink)+hostLink.length());
-                getResponse(isTheFirstRequest(id)
-                        ? query
-                        : String.format("%s&text=%s", query,
-                        String.join(" ", getRequests(id))));
-                return findItems(id);
+                return callHost(id, request);
+            modifyRequestsInStates(id, request);
+            if (states.hasSubcategoryLink(id) || states.hasCategoryLink(id)) {
+                states.clearCategoriesLinks(id);
+                return callHost(id, states.getCurrentRequestLink(id));
             }
-            if (!states.containsKey(id))
-                states.put(id);
-            if (request.contains("cut")){
-                String cutRequest = request.substring(4);
-                states.removeRequest(id, cutRequest);
-            } else
-                states.addRequest(id, request);
-            String requests = String.join(" ", getRequests(id));
-            HashMap<String, String> categories;
-            if (!isTheFirstRequest(id)) {
-                getResponse(String.format("/search/?text=%s", requests));
-                categories = getSubcategories();
-            } else
-                categories = getRelevantCategories(requests);
-            if (categories.size() == 0) {
-                states.setItemsFound(id, isTheFirstRequest(id));
-                return "Кажется, товаров такой категории у нас нет";
-            }
-            states.setItemsFound(id, true);
-            states.updateCategories(id, categories);
-            return "Мы нашли ваш товар в следующих категориях:";
+            String requests = states.getCurrentRequest(id);
+            if (!isTheFirstRequest(id))
+                loader.sendRequest(String.format("/search/?text=%s", requests));
+            HashMap<String, String> categories = setCategories(id, requests);
+            addCategoriesAndItemsToStates(id, categories);
+            return categories == null || categories.size() == 0
+                    ? "Кажется, товаров такой категории у нас нет\n" +
+                    "Уберите один из предыдущих запросов"
+                    : "Мы нашли ваш товар в нескольких категориях\n" +
+                    "Нажмите на интересующую вас категорию";
         } catch (Exception e){
             states.setItemsFound(id, false);
             return "Произошла ошибка.\nПопробуйте еще раз или уберите один из Ваших предыдущих запросов";
         }
     }
 
-    private boolean isTheFirstRequest(long id){
-        return !states.containsKey(id) || getRequests(id).size() <= 1;
-    }
-
     public Map<String, String> getCategories(long id, String request){
-        return !request.equals("/start") && !request.contains("citilink.ru")
-                ? states.getCategories(id)
+        return !request.equals("/start") && !request.contains(hostLink)
+                ? states.getCategoriesLinks(id)
                 : null;
     }
 
@@ -79,9 +58,45 @@ public class Bot {
     }
 
     public List<String> getRequests(long id){
-        return states.containsKey(id)
-                ? states.getRequests(id)
-                : null;
+        return states.containsKey(id) ? states.getRequests(id) : null;
+    }
+
+    private String callHost(long id, String request){
+        String query = request.substring(request.indexOf(hostLink)+hostLink.length());
+        loader.sendRequest(isTheFirstRequest(id)
+                ? query
+                : String.format("%s&text=%s", query, states.getCurrentRequest(id)));
+        if (!states.hasSubcategoryLink(id))
+            states.addLink(id, request);
+        return findItems(id);
+    }
+
+    private void modifyRequestsInStates(long id, String request){
+        if (!states.containsKey(id))
+            states.put(id);
+        if (request.contains("cut")){
+            String cutRequest = request.substring(4);
+            states.removeRequest(id, cutRequest);
+        } else
+            states.addRequest(id, request);
+    }
+
+    private void addCategoriesAndItemsToStates(long id, HashMap<String, String> categories){
+        if (categories == null || categories.size() == 0)
+            states.setItemsFound(id, isTheFirstRequest(id));
+        else
+            states.setItemsFound(id, true);
+        states.updateCategoriesLinks(id, categories);
+    }
+
+    private boolean isTheFirstRequest(long id){
+        return !states.containsKey(id) || getRequests(id).size() <= 1;
+    }
+
+    private HashMap<String, String> setCategories(long id, String requests){
+        return isTheFirstRequest(id)
+                ? getRelevantCategories(requests)
+                : getSubcategories();
     }
 
     private HashMap<String, String> getRelevantCategories(String request){
@@ -96,56 +111,66 @@ public class Bot {
     }
 
     private HashMap<String, String> getAllCategories(){
-        String categoriesString = response.substring(response.indexOf("<menu"));
-        String[] allLines = categoriesString.substring(0, categoriesString.indexOf("</menu")).split("\n");
-        HashMap<String, String> categories = new HashMap<>();
-        String currentReference = "";
-        for (String line: allLines){
-            if (line.contains(" href"))
-                currentReference = line.substring(line.indexOf("\"")+1, line.length()-1);
-            else if (!currentReference.equals("")){
-                if (line.contains(">"))
-                    continue;
-                categories.put(line.strip(), currentReference);
-                currentReference = "";
+        String content = loader.getContent();
+        try {
+            String categoriesString = content.substring(content.indexOf("<menu"));
+            String[] allLines = categoriesString.substring(0, categoriesString.indexOf("</menu")).split("\n");
+            HashMap<String, String> categories = new HashMap<>();
+            String currentReference = "";
+            for (String line : allLines) {
+                if (line.contains(" href"))
+                    currentReference = line.substring(line.indexOf("\"") + 1, line.length() - 1);
+                else if (!currentReference.equals("")) {
+                    if (line.contains(">"))
+                        continue;
+                    categories.put(line.strip(), currentReference);
+                    currentReference = "";
+                }
             }
+            return categories;
+        } catch (StringIndexOutOfBoundsException e){
+            return null;
         }
-        return categories;
     }
 
     private HashMap<String, String> getSubcategories(){
-        String categoriesString = response.substring(response.indexOf("Найдено в категориях:"));
-        String[] allLines = categoriesString.substring(0, categoriesString.indexOf("</div>")).split("\n");
-        HashMap<String, String> categories = new HashMap<>();
-        String currentReference = "";
-        for (String line: allLines){
-            if (line.contains("data-search-text"))
-                continue;
-            if (line.contains("href")) {
-                String link = line.substring(line.indexOf("\"")+1);
-                currentReference = link.substring(0, link.indexOf("\"")).replace("&amp;", "&");
-            } else if (!line.contains(">")){
-                String reference = URLDecoder.decode(currentReference, StandardCharsets.UTF_8);
-                categories.put(line.strip(), String.format("citilink.ru%s",
-                        reference.substring(0, reference.indexOf("&text"))));
-                currentReference = "";
+        String content = loader.getContent();
+        try {
+            String categoriesString = content.substring(content.indexOf("Найдено в категориях:"));
+            String[] allLines = categoriesString.substring(0, categoriesString.indexOf("</div>")).split("\n");
+            HashMap<String, String> categories = new HashMap<>();
+            String currentReference = "";
+            for (String line : allLines) {
+                if (line.contains("data-search-text"))
+                    continue;
+                if (line.contains("href")) {
+                    String link = line.substring(line.indexOf("\"") + 1);
+                    currentReference = link.substring(0, link.indexOf("\"")).replace("&amp;", "&");
+                } else if (!line.contains(">")) {
+                    String reference = URLDecoder.decode(currentReference, StandardCharsets.UTF_8);
+                    categories.put(line.strip(), String.format("%s%s", hostLink,
+                            reference.substring(0, reference.indexOf("&text"))));
+                    currentReference = "";
+                }
             }
+            return categories;
+        } catch (IndexOutOfBoundsException e){
+            return null;
         }
-        return categories;
     }
 
     private String findItems(long id) {
-        String[] allLines = response.split("\n");
+        String[] allLines = loader.getContent().split("\n");
         ArrayList<String> lines = new ArrayList<>();
         String trigger = "data-params=\"";
         for (String line: allLines)
             if (line.contains(trigger))
                 lines.add(line.substring(line.indexOf(trigger) + trigger.length()));
         StringBuilder builder = new StringBuilder();
-        for (int i = 0; i < lines.size(); i+=2) {
-            String processedLine = getItemInfo(lines.get(i));
-            String[] words = states.getLastRequest(id).split(" ");
-            for (String word: words)
+        for (String line : lines) {
+            String processedLine = getItemInfo(line);
+            String[] words = states.getCurrentRequest(id).split(" ");
+            for (String word : words)
                 if (processedLine != null &&
                         processedLine.toLowerCase().contains(word.toLowerCase())) {
                     builder.append(processedLine);
@@ -156,7 +181,9 @@ public class Bot {
         states.setItemsFound(id, !result.isEmpty());
         return result.equals("")
                 ? "Кажется, такого товара нет :(\nУберите один из ваших запросов"
-                : result;
+                : String.format("Результаты поиска\n%s\n" +
+                        "Нажмите на интересующую вас ссылку или введите уточняющий запрос",
+                                result);
     }
 
     private String getItemInfo(String line) {
@@ -166,46 +193,5 @@ public class Bot {
                 ? String.format("_%s_\n*Бренд:*%s\n*Цена:*%d\n", json.get("shortName"), json.get("brandName"),
                 Integer.valueOf(json.get("price").toString()))
                 : null;
-    }
-
-    private void getResponse(String txt){
-        HttpURLConnection connection = null;
-        try {
-            URL url = new URL(String.format("https://www.citilink.ru%s", parseQuery(txt)));
-            connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("POST");
-            connection.setRequestProperty("Content-Type",
-                    "application/x-www-form-urlencoded");
-            connection.setRequestProperty("Content-Language", "en-US");
-            connection.setUseCaches(false);
-            connection.setDoOutput(true);
-            DataOutputStream wr = new DataOutputStream (connection.getOutputStream());
-            wr.close();
-            BufferedReader rd = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-            String line;
-            StringBuilder result = new StringBuilder();
-            while ((line = rd.readLine()) != null) {
-                result.append(line);
-                result.append('\n');
-            }
-            rd.close();
-            response = result.toString();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        } finally {
-            if (connection != null)
-                connection.disconnect();
-        }
-    }
-
-    private String parseQuery(String originalQuery){
-        String separator = "text=";
-        int index = originalQuery.indexOf(separator);
-        if (index != -1) {
-            String query = originalQuery.substring(index+separator.length());
-            return String.format("/%s%s", originalQuery.substring(0, index+separator.length()),
-                    URLEncoder.encode(query, StandardCharsets.UTF_8));
-        }
-        return originalQuery;
     }
 }
