@@ -160,24 +160,28 @@ public class Bot {
     }
 
     private String findItems(long id) {
-        String[] allLines = loader.getContent().split("\n");
-        ArrayList<String> lines = new ArrayList<>();
-        String trigger = "data-params=\"";
-        for (String line: allLines)
-            if (line.contains(trigger))
-                lines.add(line.substring(line.indexOf(trigger) + trigger.length()));
-        StringBuilder builder = new StringBuilder();
-        for (String line : lines) {
-            String processedLine = getItemInfo(line);
-            String[] words = states.getCurrentRequest(id).split(" ");
-            for (String word : words)
-                if (processedLine != null &&
+        String result = "";
+        String content = loader.getContent();
+        if (!content.contains("Ваш запрос содержит менее 2 символов.")){
+            String[] allLines = content.split("\n");
+            ArrayList<String> lines = new ArrayList<>();
+            String trigger = "data-params=\"";
+            for (String line: allLines)
+                if (line.contains(trigger))
+                    lines.add(line.substring(line.indexOf(trigger) + trigger.length()));
+            StringBuilder builder = new StringBuilder();
+            for (int i = 0; i < lines.size(); i+=4) {
+                String processedLine = getItemInfo(lines.get(i));
+                String[] words = states.getCurrentRequest(id).split(" ");
+                for (String word: words)
+                    if (processedLine != null &&
                         processedLine.toLowerCase().contains(word.toLowerCase())) {
-                    builder.append(processedLine);
-                    builder.append("\n");
+                        builder.append(processedLine);
+                        builder.append("\n");
                 }
+            }
+            result = builder.toString();
         }
-        String result = builder.toString();
         states.setItemsFound(id, !result.isEmpty());
         return result.equals("")
                 ? "Кажется, такого товара нет :(\nУберите один из ваших запросов"
