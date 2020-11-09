@@ -171,7 +171,7 @@ public class Bot {
                     lines.add(line.substring(line.indexOf(trigger) + trigger.length()));
             StringBuilder builder = new StringBuilder();
             for (int i = 0; i < lines.size(); i+=4) {
-                String processedLine = getItemInfo(lines.get(i));
+                String processedLine = getItemInfo(id, lines.get(i));
                 String[] words = states.getCurrentRequest(id).split(" ");
                 for (String word: words)
                     if (processedLine != null &&
@@ -190,12 +190,14 @@ public class Bot {
                                 result);
     }
 
-    private String getItemInfo(String line) {
+    private String getItemInfo(long userId, String line) {
         line = line.replace("&quot;", "\"");
         JSONObject json = new JSONObject(line);
+        String itemId = json.get("id").toString();
+        String category = states.getUpperCategory(userId);
         return json.has("price")
-                ? String.format("_%s_\n*Бренд:*%s\n*Цена:*%d\n", json.get("shortName"), json.get("brandName"),
-                Integer.valueOf(json.get("price").toString()))
+                ? String.format("_%s_\n*Бренд:*%s\n*Цена:*%d\n%s%s\n", json.get("shortName"), json.get("brandName"),
+                Integer.valueOf(json.get("price").toString()), category, itemId)
                 : null;
     }
 }

@@ -58,6 +58,10 @@ public class StatesOfUsers {
         return links.get(links.size()-1);
     }
 
+    public String getUpperCategory(long id){
+        return states.get(id).previousLinks.get(0);
+    }
+
     public void updateCategoriesLinks(long id, HashMap<String, String> newCategories){
         states.get(id).categoriesLinks = newCategories;
         update();
