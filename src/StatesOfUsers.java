@@ -34,36 +34,31 @@ public class StatesOfUsers {
         update();
     }
 
-    public void addLink(long id, String link){
-        states.get(id).previousLinks.add(link);
-        update();
-    }
-
     public String getCurrentRequest(long id){
         return String.join(" ", getRequests(id));
     }
 
-    public boolean hasCategoryLink(long id){
-        User user = states.get(id);
-        return user.requests.size() == 1 && user.previousLinks.size() >= 1;
+    public String getCategory(long id){
+        return states.get(id).category;
     }
 
-    public boolean hasSubcategoryLink(long id){
-        User user = states.get(id);
-        return user.requests.size() >= 2 && user.previousLinks.size() == 2;
+    public void setCategory(long id, String newCategory){
+        states.get(id).category = newCategory;
+        update();
     }
 
-    public String getCurrentRequestLink(long id){
-        List<String> links = states.get(id).previousLinks;
-        return links.get(links.size()-1);
+    public String getSubcategory(long id){
+        return states.get(id).subcategory;
     }
 
-    public String getUpperCategory(long id){
-        return states.get(id).previousLinks.get(0);
+    public void setSubcategory(long id, String newSubcategory){
+        states.get(id).subcategory = newSubcategory;
+        update();
     }
 
     public void updateCategoriesLinks(long id, HashMap<String, String> newCategories){
         states.get(id).categoriesLinks = newCategories;
+        setItemsFound(id, !newCategories.isEmpty());
         update();
     }
 
@@ -88,9 +83,9 @@ public class StatesOfUsers {
     public void removeRequest(long id, String str){
         User user = states.get(id);
         user.requests.remove(str);
-        if (user.requests.size() < 2) {
-            List<String> links = user.previousLinks;
-            links.remove(links.size() - 1);
+        if (user.requests.size() == 0) {
+            user.category = null;
+            user.subcategory = null;
         }
         update();
     }
