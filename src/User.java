@@ -12,7 +12,6 @@ public class User {
     public List<String> requests;
     public Map<String, String> categoriesLinks;
     public String category;
-    public String subcategory;
     public boolean areItemsFound;
     public User(){}
 

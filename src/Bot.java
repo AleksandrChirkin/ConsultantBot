@@ -1,3 +1,5 @@
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -10,10 +12,10 @@ public class Bot {
     private final HashMap<String, String> categories;
     private final StatesOfUsers states;
 
-    public Bot(DataLoader dataLoader){
+    public Bot(DataLoader dataLoader, StatesOfUsers statesOfUsers){
         loader = dataLoader;
-        states = new StatesOfUsers();
         categories = getAllCategories();
+        states = statesOfUsers;
     }
 
     public String execute(long id, String request) {
@@ -47,23 +49,36 @@ public class Bot {
 
     private String callHost(long id, String request){
         if (!isTheFirstRequest(id)) {
-            loader.sendRequest(String.format("%s&text=%s", states.getSubcategory(id), states.getCurrentRequest(id)));
-            return findItems(id);
+            if (getRelevantCategories(id, request).size() != 0) {
+                states.clearRequests(id);
+                states.setCategory(id, null);
+                return "Ваш товар найден в следующих категориях: ";
+            }
+            HashMap<String, String> subcategories = getSubcategories(states.getCurrentRequest(id));
+            if (subcategories != null) {
+                for (String subcategory : subcategories.keySet()) {
+                    for (String word : states.getCurrentRequest(id).split(" "))
+                        if (word.toLowerCase().contains(subcategory.toLowerCase()) ||
+                                subcategory.toLowerCase().contains(word.toLowerCase())) {
+                            String query = subcategories.get(subcategory);
+                            String hostLink = loader.getHostLink();
+                            return findItems(id,
+                                    String.format("%s&text=%s",
+                                            query.substring(query.indexOf(hostLink) + hostLink.length()),
+                                            states.getCurrentRequest(id)));
+                        }
+                }
+            }
+            states.setItemsFound(id, false);
+            return "Кажется, такого товара нет :(\nУберите один из ваших запросов";
         }
-        if (request.contains("catalog")) {
-            loader.sendRequest(request);
-            if (states.getCategory(id) == null) {
-                states.setCategory(id, request);
-                getSubcategories(id);
-            }
-            else if (states.getSubcategory(id) == null) {
-                states.setSubcategory(id, request);
-                states.clearCategoriesLinks(id);
-                return findItems(id);
-            }
-        } else
-            getRelevantCategories(id, request);
-        return "Ваш товар найден в следующих категориях: ";
+        if (request.contains("/catalog")){
+            states.setCategory(id, request);
+            states.clearCategoriesLinks(id);
+            return findItems(id, request);
+        }
+        getRelevantCategories(id, request);
+        return "Ваш товар найден в нескольких категориях.\nНажмите на интересующую вас категорию.";
     }
 
     private void modifyRequestsInStates(long id, String request){
@@ -76,7 +91,7 @@ public class Bot {
             states.addRequest(id, request);
     }
 
-    private void getRelevantCategories(long id, String request){
+    private HashMap<String, String> getRelevantCategories(long id, String request){
         HashMap<String, String> relevantCategories = new HashMap<>();
         String[] words = request.split(" ");
         for (String category: categories.keySet())
@@ -85,23 +100,53 @@ public class Bot {
                     if (item.toLowerCase().contains(word.toLowerCase()))
                         relevantCategories.put(category, categories.get(category));
         states.updateCategoriesLinks(id, relevantCategories);
+        return relevantCategories;
     }
 
     private HashMap<String, String> getAllCategories(){
-        String content = loader.getContent();
+        String content = loader.getContent("/catalog/");
+        String hostLink = loader.getHostLink();
+        HashMap<String, String> result = new HashMap<>();
         try {
-            String categoriesString = content.substring(content.indexOf("<menu"));
-            String[] allLines = categoriesString.substring(0, categoriesString.indexOf("</menu")).split("\n");
+            String[] allLines = content.split("\n");
+            String trigger = String.format("<a href=\"%s/catalog", hostLink);
+            String currentReference = "";
+            boolean triggered = false;
+            for (String line: allLines){
+                if (line.contains(trigger)){
+                    currentReference = line.substring(line.indexOf(hostLink));
+                    triggered = true;
+                } else if (triggered){
+                    result.put(line.strip(),
+                            currentReference.substring(currentReference.indexOf(hostLink)+hostLink.length(),
+                                                       currentReference.length()-2));
+                    currentReference = "";
+                    triggered = false;
+                }
+            }
+            return result;
+        } catch (StringIndexOutOfBoundsException e){
+            return null;
+        }
+    }
+
+    private HashMap<String, String> getSubcategories(String request){
+        String content = loader.getContent(String.format("/search/?text=%s", request));
+        try {
+            String categoriesString = content.substring(content.indexOf("Найдено в категориях:"));
+            String[] allLines = categoriesString.substring(0, categoriesString.indexOf("</div>")).split("\n");
             HashMap<String, String> categories = new HashMap<>();
             String currentReference = "";
             for (String line : allLines) {
-                if (line.contains(" href"))
-                    currentReference = line.substring(line.indexOf("\"") + 1, line.length() - 1);
-                else if (!currentReference.equals("")) {
-                    if (line.contains(">"))
-                        continue;
-                    categories.put(line.strip(),
-                            currentReference.substring(currentReference.indexOf("citilink.ru")+11));
+                if (line.contains("data-search-text"))
+                    continue;
+                if (line.contains("href")) {
+                    String link = line.substring(line.indexOf("\"") + 1);
+                    currentReference = link.substring(0, link.indexOf("\"")).replace("&amp;", "&");
+                } else if (!line.contains(">")) {
+                    String reference = URLDecoder.decode(currentReference, StandardCharsets.UTF_8);
+                    categories.put(line.strip(), String.format("%s%s", loader.getHostLink(),
+                            reference.substring(0, reference.indexOf("&text"))));
                     currentReference = "";
                 }
             }
@@ -111,36 +156,9 @@ public class Bot {
         }
     }
 
-    private void getSubcategories(long id){
-        String content = loader.getContent();
-        try {
-            String trigger = "<h2 class=category-content__title\">";
-            String categoriesString = content.substring(content.indexOf(trigger));
-            String[] allLines = categoriesString.split("\n");
-            HashMap<String, String> subcategories = new HashMap<>();
-            String currentReference = "";
-            boolean triggered = false;
-            for (String line : allLines) {
-                if (line.contains(trigger)) {
-                    triggered = true;
-                    String strippedLine = line.strip();
-                    currentReference = strippedLine.substring(strippedLine.indexOf("https://")+23,
-                                                              strippedLine.strip().length()-2);
-                } else if (triggered) {
-                    subcategories.put(line.strip(), currentReference);
-                    currentReference = "";
-                    triggered = false;
-                }
-            }
-            states.updateCategoriesLinks(id, subcategories);
-        } catch (IndexOutOfBoundsException e){
-            throw new RuntimeException(e);
-        }
-    }
-
-    private String findItems(long id) {
+    private String findItems(long id, String request) {
         String result = "";
-        String content = loader.getContent();
+        String content = loader.getContent(request);
         if (!content.contains("Ваш запрос содержит менее 2 символов.")){
             String[] allLines = content.split("\n");
             ArrayList<String> lines = new ArrayList<>();
@@ -149,14 +167,11 @@ public class Bot {
                 if (line.contains(trigger))
                     lines.add(line.substring(line.indexOf(trigger) + trigger.length()));
             StringBuilder builder = new StringBuilder();
-            for (int i = 0; i < lines.size(); i+=4) {
+            for (int i = 0; i < lines.size(); i+=2) {
                 String processedLine = getItemInfo(id, lines.get(i));
-                String[] words = states.getCurrentRequest(id).split(" ");
-                for (String word: words)
-                    if (processedLine != null &&
-                        processedLine.toLowerCase().contains(word.toLowerCase())) {
-                        builder.append(processedLine);
-                        builder.append("\n");
+                if (processedLine != null && processedLine.length()+builder.length() <= 4096) {
+                    builder.append(processedLine);
+                    builder.append("\n");
                 }
             }
             result = builder.toString();
@@ -174,9 +189,11 @@ public class Bot {
         JSONObject json = new JSONObject(line);
         String itemId = json.get("id").toString();
         String category = states.getCategory(userId);
+        String hostLink = loader.getHostLink();
         return json.has("price")
-                ? String.format("_%s_\n*Бренд:*%s\n*Цена:*%d\nhttps://citilink.ru%s%s\n", json.get("shortName"), json.get("brandName"),
-                Integer.valueOf(json.get("price").toString()), category, itemId)
+                ? String.format("<i>%s</i>\n<b>Бренд:</b>%s\n<b>Цена:</b>%d\n%s%s%s\n",
+                json.get("shortName"), json.get("brandName"),
+                Integer.valueOf(json.get("price").toString()), hostLink, category, itemId)
                 : null;
     }
 }

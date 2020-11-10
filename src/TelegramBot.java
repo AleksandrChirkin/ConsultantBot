@@ -13,9 +13,11 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 import java.util.*;
 
 public class TelegramBot extends TelegramLongPollingBot {
-    private final Bot bot = new Bot(new DataLoader());
+    private static Bot bot;
 
     public static void main(String[] a) throws TelegramApiRequestException {
+        bot = new Bot(new DataLoader("https://www.citilink.ru"),
+                new StatesOfUsers("./src/statesOfUsers.json"));
         ApiContextInitializer.init();
         TelegramBotsApi botsApi = new TelegramBotsApi();
         botsApi.registerBot(new TelegramBot());
@@ -40,7 +42,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     private void sendResponse(long id, String userMessage, String response){
         SendMessage message = new SendMessage();
-        message.enableMarkdown(true);
+        message.enableHtml(true);
         message.setChatId(id);
         message.setText(response);
         setButtons(message, id, userMessage);

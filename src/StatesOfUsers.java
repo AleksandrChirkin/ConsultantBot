@@ -7,10 +7,12 @@ import java.util.Map;
 
 public class StatesOfUsers {
     private final HashMap<Long, User> states;
+    private final String base;
 
-    public StatesOfUsers(){
+    public StatesOfUsers(String baseAddress){
         states = new HashMap<>();
-        File file = new File("./src/statesOfUsers.json");
+        base = baseAddress;
+        File file = new File(base);
         try {
             BufferedReader reader = new BufferedReader(new FileReader(file));
             String line;
@@ -47,15 +49,6 @@ public class StatesOfUsers {
         update();
     }
 
-    public String getSubcategory(long id){
-        return states.get(id).subcategory;
-    }
-
-    public void setSubcategory(long id, String newSubcategory){
-        states.get(id).subcategory = newSubcategory;
-        update();
-    }
-
     public void updateCategoriesLinks(long id, HashMap<String, String> newCategories){
         states.get(id).categoriesLinks = newCategories;
         setItemsFound(id, !newCategories.isEmpty());
@@ -75,6 +68,12 @@ public class StatesOfUsers {
         return states.get(id).requests;
     }
 
+    public void clearRequests(long id){
+        User user = states.get(id);
+        while (user.requests.size() > 1)
+            user.requests.remove(0);
+    }
+
     public void addRequest(long id, String str){
         states.get(id).requests.add(str);
         update();
@@ -83,10 +82,8 @@ public class StatesOfUsers {
     public void removeRequest(long id, String str){
         User user = states.get(id);
         user.requests.remove(str);
-        if (user.requests.size() == 0) {
+        if (user.requests.size() == 0)
             user.category = null;
-            user.subcategory = null;
-        }
         update();
     }
 
@@ -102,7 +99,7 @@ public class StatesOfUsers {
     private void update()
     {
         try {
-            File file = new File("./src/statesOfUsers.json");
+            File file = new File(base);
             BufferedWriter writer = new BufferedWriter(new FileWriter(file, false));
             for (User user : states.values())
             {
