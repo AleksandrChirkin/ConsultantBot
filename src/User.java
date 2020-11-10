@@ -11,7 +11,7 @@ public class User {
     public long id;
     public List<String> requests;
     public Map<String, String> categoriesLinks;
-    public List<String> previousLinks;
+    public String category;
     public boolean areItemsFound;
     public User(){}
 
@@ -20,6 +20,5 @@ public class User {
         this.id = id;
         requests = new ArrayList<>();
         categoriesLinks = new HashMap<>();
-        previousLinks = new ArrayList<>();
     }
 }

@@ -7,10 +7,12 @@ import java.util.Map;
 
 public class StatesOfUsers {
     private final HashMap<Long, User> states;
+    private final String base;
 
-    public StatesOfUsers(){
+    public StatesOfUsers(String baseAddress){
         states = new HashMap<>();
-        File file = new File("./src/statesOfUsers.json");
+        base = baseAddress;
+        File file = new File(base);
         try {
             BufferedReader reader = new BufferedReader(new FileReader(file));
             String line;
@@ -34,36 +36,22 @@ public class StatesOfUsers {
         update();
     }
 
-    public void addLink(long id, String link){
-        states.get(id).previousLinks.add(link);
-        update();
-    }
-
     public String getCurrentRequest(long id){
         return String.join(" ", getRequests(id));
     }
 
-    public boolean hasCategoryLink(long id){
-        User user = states.get(id);
-        return user.requests.size() == 1 && user.previousLinks.size() >= 1;
+    public String getCategory(long id){
+        return states.get(id).category;
     }
 
-    public boolean hasSubcategoryLink(long id){
-        User user = states.get(id);
-        return user.requests.size() >= 2 && user.previousLinks.size() == 2;
-    }
-
-    public String getCurrentRequestLink(long id){
-        List<String> links = states.get(id).previousLinks;
-        return links.get(links.size()-1);
-    }
-
-    public String getUpperCategory(long id){
-        return states.get(id).previousLinks.get(0);
+    public void setCategory(long id, String newCategory){
+        states.get(id).category = newCategory;
+        update();
     }
 
     public void updateCategoriesLinks(long id, HashMap<String, String> newCategories){
         states.get(id).categoriesLinks = newCategories;
+        setItemsFound(id, !newCategories.isEmpty());
         update();
     }
 
@@ -80,6 +68,12 @@ public class StatesOfUsers {
         return states.get(id).requests;
     }
 
+    public void clearRequests(long id){
+        User user = states.get(id);
+        while (user.requests.size() > 1)
+            user.requests.remove(0);
+    }
+
     public void addRequest(long id, String str){
         states.get(id).requests.add(str);
         update();
@@ -88,10 +82,8 @@ public class StatesOfUsers {
     public void removeRequest(long id, String str){
         User user = states.get(id);
         user.requests.remove(str);
-        if (user.requests.size() < 2) {
-            List<String> links = user.previousLinks;
-            links.remove(links.size() - 1);
-        }
+        if (user.requests.size() == 0)
+            user.category = null;
         update();
     }
 
@@ -107,7 +99,7 @@ public class StatesOfUsers {
     private void update()
     {
         try {
-            File file = new File("./src/statesOfUsers.json");
+            File file = new File(base);
             BufferedWriter writer = new BufferedWriter(new FileWriter(file, false));
             for (User user : states.values())
             {

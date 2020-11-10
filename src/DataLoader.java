@@ -7,24 +7,20 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 public class DataLoader {
-    private String response;
+    private final String hostLink;
 
-    public DataLoader(){
-        getResponse("");
+    public DataLoader(String host){
+        hostLink = host;
     }
 
-    public String getContent(){
-        return response;
+    public String getHostLink() {
+        return hostLink;
     }
 
-    public void sendRequest(String txt){
-        getResponse(txt);
-    }
-
-    private void getResponse(String txt){
+    public String getContent(String txt){
         HttpURLConnection connection = null;
         try {
-            URL url = new URL(String.format("https://www.citilink.ru%s", parseQuery(txt)));
+            URL url = new URL(String.format("%s%s", hostLink, parseQuery(txt)));
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("POST");
             connection.setRequestProperty("Content-Type",
@@ -42,7 +38,7 @@ public class DataLoader {
                 result.append('\n');
             }
             rd.close();
-            response = result.toString();
+            return result.toString();
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {

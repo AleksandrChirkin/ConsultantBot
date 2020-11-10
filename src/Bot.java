@@ -11,12 +11,11 @@ public class Bot {
     private final DataLoader loader;
     private final HashMap<String, String> categories;
     private final StatesOfUsers states;
-    private static final String hostLink = "citilink.ru";
 
-    public Bot(DataLoader dataLoader){
+    public Bot(DataLoader dataLoader, StatesOfUsers statesOfUsers){
         loader = dataLoader;
-        states = new StatesOfUsers();
         categories = getAllCategories();
+        states = statesOfUsers;
     }
 
     public String execute(long id, String request) {
@@ -24,23 +23,8 @@ public class Bot {
             if (request.equals("/start"))
                 return "Бот-консультант. Ищет нужный вам товар в ситилинке\n" +
                         "Введите нужный вам товар:";
-            if (request.contains(hostLink))
-                return callHost(id, request);
             modifyRequestsInStates(id, request);
-            if (states.hasSubcategoryLink(id) || states.hasCategoryLink(id)) {
-                states.clearCategoriesLinks(id);
-                return callHost(id, states.getCurrentRequestLink(id));
-            }
-            String requests = states.getCurrentRequest(id);
-            if (!isTheFirstRequest(id))
-                loader.sendRequest(String.format("/search/?text=%s", requests));
-            HashMap<String, String> categories = setCategories(id, requests);
-            addCategoriesAndItemsToStates(id, categories);
-            return categories == null || categories.size() == 0
-                    ? "Кажется, товаров такой категории у нас нет\n" +
-                    "Уберите один из предыдущих запросов"
-                    : "Мы нашли ваш товар в нескольких категориях\n" +
-                    "Нажмите на интересующую вас категорию";
+            return callHost(id, request);
         } catch (Exception e){
             states.setItemsFound(id, false);
             return "Произошла ошибка.\nПопробуйте еще раз или уберите один из Ваших предыдущих запросов";
@@ -48,9 +32,7 @@ public class Bot {
     }
 
     public Map<String, String> getCategories(long id, String request){
-        return !request.equals("/start") && !request.contains(hostLink)
-                ? states.getCategoriesLinks(id)
-                : null;
+        return !request.equals("/start") ? states.getCategoriesLinks(id) : null;
     }
 
     public boolean areItemsFound(long id){
@@ -61,14 +43,42 @@ public class Bot {
         return states.containsKey(id) ? states.getRequests(id) : null;
     }
 
+    public boolean isTheFirstRequest(long id){
+        return !states.containsKey(id) || getRequests(id).size() <= 1;
+    }
+
     private String callHost(long id, String request){
-        String query = request.substring(request.indexOf(hostLink)+hostLink.length());
-        loader.sendRequest(isTheFirstRequest(id)
-                ? query
-                : String.format("%s&text=%s", query, states.getCurrentRequest(id)));
-        if (!states.hasSubcategoryLink(id))
-            states.addLink(id, request);
-        return findItems(id);
+        if (!isTheFirstRequest(id)) {
+            if (getRelevantCategories(id, request).size() != 0) {
+                states.clearRequests(id);
+                states.setCategory(id, null);
+                return "Ваш товар найден в следующих категориях: ";
+            }
+            HashMap<String, String> subcategories = getSubcategories(states.getCurrentRequest(id));
+            if (subcategories != null) {
+                for (String subcategory : subcategories.keySet()) {
+                    for (String word : states.getCurrentRequest(id).split(" "))
+                        if (word.toLowerCase().contains(subcategory.toLowerCase()) ||
+                                subcategory.toLowerCase().contains(word.toLowerCase())) {
+                            String query = subcategories.get(subcategory);
+                            String hostLink = loader.getHostLink();
+                            return findItems(id,
+                                    String.format("%s&text=%s",
+                                            query.substring(query.indexOf(hostLink) + hostLink.length()),
+                                            states.getCurrentRequest(id)));
+                        }
+                }
+            }
+            states.setItemsFound(id, false);
+            return "Кажется, такого товара нет :(\nУберите один из ваших запросов";
+        }
+        if (request.contains("/catalog")){
+            states.setCategory(id, request);
+            states.clearCategoriesLinks(id);
+            return findItems(id, request);
+        }
+        getRelevantCategories(id, request);
+        return "Ваш товар найден в нескольких категориях.\nНажмите на интересующую вас категорию.";
     }
 
     private void modifyRequestsInStates(long id, String request){
@@ -77,64 +87,51 @@ public class Bot {
         if (request.contains("cut")){
             String cutRequest = request.substring(4);
             states.removeRequest(id, cutRequest);
-        } else
+        } else if (!request.contains("/catalog"))
             states.addRequest(id, request);
     }
 
-    private void addCategoriesAndItemsToStates(long id, HashMap<String, String> categories){
-        if (categories == null || categories.size() == 0)
-            states.setItemsFound(id, isTheFirstRequest(id));
-        else
-            states.setItemsFound(id, true);
-        states.updateCategoriesLinks(id, categories);
-    }
-
-    private boolean isTheFirstRequest(long id){
-        return !states.containsKey(id) || getRequests(id).size() <= 1;
-    }
-
-    private HashMap<String, String> setCategories(long id, String requests){
-        return isTheFirstRequest(id)
-                ? getRelevantCategories(requests)
-                : getSubcategories();
-    }
-
-    private HashMap<String, String> getRelevantCategories(String request){
-        HashMap<String, String> result = new HashMap<>();
+    private HashMap<String, String> getRelevantCategories(long id, String request){
+        HashMap<String, String> relevantCategories = new HashMap<>();
         String[] words = request.split(" ");
         for (String category: categories.keySet())
             for (String item: category.split(" "))
                 for (String word: words)
                     if (item.toLowerCase().contains(word.toLowerCase()))
-                        result.put(category, categories.get(category));
-        return result;
+                        relevantCategories.put(category, categories.get(category));
+        states.updateCategoriesLinks(id, relevantCategories);
+        return relevantCategories;
     }
 
     private HashMap<String, String> getAllCategories(){
-        String content = loader.getContent();
+        String content = loader.getContent("/catalog/");
+        String hostLink = loader.getHostLink();
+        HashMap<String, String> result = new HashMap<>();
         try {
-            String categoriesString = content.substring(content.indexOf("<menu"));
-            String[] allLines = categoriesString.substring(0, categoriesString.indexOf("</menu")).split("\n");
-            HashMap<String, String> categories = new HashMap<>();
+            String[] allLines = content.split("\n");
+            String trigger = String.format("<a href=\"%s/catalog", hostLink);
             String currentReference = "";
-            for (String line : allLines) {
-                if (line.contains(" href"))
-                    currentReference = line.substring(line.indexOf("\"") + 1, line.length() - 1);
-                else if (!currentReference.equals("")) {
-                    if (line.contains(">"))
-                        continue;
-                    categories.put(line.strip(), currentReference);
+            boolean triggered = false;
+            for (String line: allLines){
+                if (line.contains(trigger)){
+                    currentReference = line.substring(line.indexOf(hostLink));
+                    triggered = true;
+                } else if (triggered){
+                    result.put(line.strip(),
+                            currentReference.substring(currentReference.indexOf(hostLink)+hostLink.length(),
+                                                       currentReference.length()-2));
                     currentReference = "";
+                    triggered = false;
                 }
             }
-            return categories;
+            return result;
         } catch (StringIndexOutOfBoundsException e){
             return null;
         }
     }
 
-    private HashMap<String, String> getSubcategories(){
-        String content = loader.getContent();
+    private HashMap<String, String> getSubcategories(String request){
+        String content = loader.getContent(String.format("/search/?text=%s", request));
         try {
             String categoriesString = content.substring(content.indexOf("Найдено в категориях:"));
             String[] allLines = categoriesString.substring(0, categoriesString.indexOf("</div>")).split("\n");
@@ -148,20 +145,20 @@ public class Bot {
                     currentReference = link.substring(0, link.indexOf("\"")).replace("&amp;", "&");
                 } else if (!line.contains(">")) {
                     String reference = URLDecoder.decode(currentReference, StandardCharsets.UTF_8);
-                    categories.put(line.strip(), String.format("%s%s", hostLink,
+                    categories.put(line.strip(), String.format("%s%s", loader.getHostLink(),
                             reference.substring(0, reference.indexOf("&text"))));
                     currentReference = "";
                 }
             }
             return categories;
-        } catch (IndexOutOfBoundsException e){
+        } catch (StringIndexOutOfBoundsException e){
             return null;
         }
     }
 
-    private String findItems(long id) {
+    private String findItems(long id, String request) {
         String result = "";
-        String content = loader.getContent();
+        String content = loader.getContent(request);
         if (!content.contains("Ваш запрос содержит менее 2 символов.")){
             String[] allLines = content.split("\n");
             ArrayList<String> lines = new ArrayList<>();
@@ -170,14 +167,11 @@ public class Bot {
                 if (line.contains(trigger))
                     lines.add(line.substring(line.indexOf(trigger) + trigger.length()));
             StringBuilder builder = new StringBuilder();
-            for (int i = 0; i < lines.size(); i+=4) {
+            for (int i = 0; i < lines.size(); i+=2) {
                 String processedLine = getItemInfo(id, lines.get(i));
-                String[] words = states.getCurrentRequest(id).split(" ");
-                for (String word: words)
-                    if (processedLine != null &&
-                        processedLine.toLowerCase().contains(word.toLowerCase())) {
-                        builder.append(processedLine);
-                        builder.append("\n");
+                if (processedLine != null && processedLine.length()+builder.length() <= 4096) {
+                    builder.append(processedLine);
+                    builder.append("\n");
                 }
             }
             result = builder.toString();
@@ -194,10 +188,12 @@ public class Bot {
         line = line.replace("&quot;", "\"");
         JSONObject json = new JSONObject(line);
         String itemId = json.get("id").toString();
-        String category = states.getUpperCategory(userId);
+        String category = states.getCategory(userId);
+        String hostLink = loader.getHostLink();
         return json.has("price")
-                ? String.format("_%s_\n*Бренд:*%s\n*Цена:*%d\n%s%s\n", json.get("shortName"), json.get("brandName"),
-                Integer.valueOf(json.get("price").toString()), category, itemId)
+                ? String.format("<i>%s</i>\n<b>Бренд:</b>%s\n<b>Цена:</b>%d\n%s%s%s\n",
+                json.get("shortName"), json.get("brandName"),
+                Integer.valueOf(json.get("price").toString()), hostLink, category, itemId)
                 : null;
     }
 }

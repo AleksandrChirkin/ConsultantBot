@@ -10,14 +10,14 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class TelegramBot extends TelegramLongPollingBot {
-    private final Bot bot = new Bot(new DataLoader());
+    private static Bot bot;
 
     public static void main(String[] a) throws TelegramApiRequestException {
+        bot = new Bot(new DataLoader("https://www.citilink.ru"),
+                new StatesOfUsers("./src/statesOfUsers.json"));
         ApiContextInitializer.init();
         TelegramBotsApi botsApi = new TelegramBotsApi();
         botsApi.registerBot(new TelegramBot());
@@ -42,7 +42,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     private void sendResponse(long id, String userMessage, String response){
         SendMessage message = new SendMessage();
-        message.enableMarkdown(true);
+        message.enableHtml(true);
         message.setChatId(id);
         message.setText(response);
         setButtons(message, id, userMessage);
@@ -56,30 +56,27 @@ public class TelegramBot extends TelegramLongPollingBot {
     private void setButtons(SendMessage message, long id, String userMessage){
         InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> keyboard;
-        if (!bot.areItemsFound(id)) {
-            List<String> previousRequests = bot.getRequests(id);
-            if (previousRequests == null || previousRequests.isEmpty())
-                return;
+        if (userMessage.equals("/start"))
+            return;
+        if (bot.isTheFirstRequest(id)) {
+            keyboard = new ArrayList<>();
+            Map<String, String> categories = bot.getCategories(id, userMessage);
+            for (String category: categories.keySet()){
+                List<InlineKeyboardButton> row = new ArrayList<>();
+                keyboard.add(row);
+                row.add(new InlineKeyboardButton().setText(category)
+                        .setCallbackData(categories.get(category)));
+            }
+        } else if (!bot.areItemsFound(id)){
             keyboard = new ArrayList<>();
             List<InlineKeyboardButton> row = new ArrayList<>();
             keyboard.add(row);
-            for (String request: previousRequests)
+            for (String request: bot.getRequests(id)){
                 row.add(new InlineKeyboardButton().setText(request)
                         .setCallbackData(String.format("cut %s", request)));
-        } else {
-            Map<String, String> categories = bot.getCategories(id, userMessage);
-            keyboard = new ArrayList<>();
-            if (categories == null)
-                return;
-            else {
-                for (String category : categories.keySet()) {
-                    List<InlineKeyboardButton> currentRow = new ArrayList<>();
-                    keyboard.add(currentRow);
-                    currentRow.add(new InlineKeyboardButton().setText(category)
-                            .setCallbackData(categories.get(category)));
-                }
             }
-        }
+        } else
+            return;
         message.setReplyMarkup(keyboardMarkup);
         keyboardMarkup.setKeyboard(keyboard);
     }
