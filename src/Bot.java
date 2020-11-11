@@ -1,9 +1,6 @@
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import org.json.JSONObject;
 
@@ -11,6 +8,12 @@ public class Bot {
     private final DataLoader loader;
     private final HashMap<String, String> categories;
     private final StatesOfUsers states;
+    private static final String NO_SUCH_ITEM_FOUND = "Кажется, такого товара нет :(\n" +
+            "Уберите один из ваших предыдущих запросов";
+    private static final String CATEGORIES_FOUND = "Ваш товар найден в нескольких категориях.\n" +
+            "Нажмите на интересующую вас категорию.";
+    private static final String START_RESPONSE = "Бот-консультант. Ищет нужный вам товар в ситилинке\n" +
+            "Введите нужный вам товар:";
 
     public Bot(DataLoader dataLoader, StatesOfUsers statesOfUsers){
         loader = dataLoader;
@@ -21,8 +24,7 @@ public class Bot {
     public String execute(long id, String request) {
         try {
             if (request.equals("/start"))
-                return "Бот-консультант. Ищет нужный вам товар в ситилинке\n" +
-                        "Введите нужный вам товар:";
+                return START_RESPONSE;
             modifyRequestsInStates(id, request);
             return callHost(id, request);
         } catch (Exception e){
@@ -48,11 +50,13 @@ public class Bot {
     }
 
     private String callHost(long id, String request){
+        if (states.getRequests(id).size() == 0)
+            return START_RESPONSE;
         if (!isTheFirstRequest(id)) {
             if (getRelevantCategories(id, request).size() != 0) {
                 states.clearRequests(id);
                 states.setCategory(id, null);
-                return "Ваш товар найден в следующих категориях: ";
+                return CATEGORIES_FOUND;
             }
             HashMap<String, String> subcategories = getSubcategories(states.getCurrentRequest(id));
             if (subcategories != null) {
@@ -70,15 +74,14 @@ public class Bot {
                 }
             }
             states.setItemsFound(id, false);
-            return "Кажется, такого товара нет :(\nУберите один из ваших запросов";
+            return NO_SUCH_ITEM_FOUND;
         }
         if (request.contains("/catalog")){
             states.setCategory(id, request);
             states.clearCategoriesLinks(id);
             return findItems(id, request);
         }
-        getRelevantCategories(id, request);
-        return "Ваш товар найден в нескольких категориях.\nНажмите на интересующую вас категорию.";
+        return getRelevantCategories(id, request).size() == 0 ? NO_SUCH_ITEM_FOUND : CATEGORIES_FOUND;
     }
 
     private void modifyRequestsInStates(long id, String request){
@@ -100,6 +103,7 @@ public class Bot {
                     if (item.toLowerCase().contains(word.toLowerCase()))
                         relevantCategories.put(category, categories.get(category));
         states.updateCategoriesLinks(id, relevantCategories);
+        states.setItemsFound(id, !relevantCategories.isEmpty());
         return relevantCategories;
     }
 

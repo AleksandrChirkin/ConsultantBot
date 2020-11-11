@@ -58,7 +58,15 @@ public class TelegramBot extends TelegramLongPollingBot {
         List<List<InlineKeyboardButton>> keyboard;
         if (userMessage.equals("/start"))
             return;
-        if (bot.isTheFirstRequest(id)) {
+        if (!bot.areItemsFound(id)){
+            keyboard = new ArrayList<>();
+            List<InlineKeyboardButton> row = new ArrayList<>();
+            keyboard.add(row);
+            for (String request: bot.getRequests(id)){
+                row.add(new InlineKeyboardButton().setText(request)
+                        .setCallbackData(String.format("cut %s", request)));
+            }
+        } else if (bot.isTheFirstRequest(id)) {
             keyboard = new ArrayList<>();
             Map<String, String> categories = bot.getCategories(id, userMessage);
             for (String category: categories.keySet()){
@@ -66,14 +74,6 @@ public class TelegramBot extends TelegramLongPollingBot {
                 keyboard.add(row);
                 row.add(new InlineKeyboardButton().setText(category)
                         .setCallbackData(categories.get(category)));
-            }
-        } else if (!bot.areItemsFound(id)){
-            keyboard = new ArrayList<>();
-            List<InlineKeyboardButton> row = new ArrayList<>();
-            keyboard.add(row);
-            for (String request: bot.getRequests(id)){
-                row.add(new InlineKeyboardButton().setText(request)
-                        .setCallbackData(String.format("cut %s", request)));
             }
         } else
             return;
