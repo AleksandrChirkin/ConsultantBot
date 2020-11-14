@@ -12,7 +12,7 @@ public class Bot {
             "Уберите один из ваших предыдущих запросов";
     private static final String CATEGORIES_FOUND = "Ваш товар найден в нескольких категориях.\n" +
             "Нажмите на интересующую вас категорию.";
-    private static final String START_RESPONSE = "Бот-консультант. Ищет нужный вам товар в ситилинке\n" +
+    private static final String START_RESPONSE = "Бот-консультант. Ищет нужный вам товар на citilink.ru\n" +
             "Введите нужный вам товар:";
 
     public Bot(DataLoader dataLoader, StatesOfUsers statesOfUsers){
@@ -81,7 +81,9 @@ public class Bot {
             states.clearCategoriesLinks(id);
             return findItems(id, request);
         }
-        return getRelevantCategories(id, request).size() == 0 ? NO_SUCH_ITEM_FOUND : CATEGORIES_FOUND;
+        if (states.getCategory(id) != null)
+            return findItems(id, states.getCategory(id));
+        return getRelevantCategories(id, states.getCurrentRequest(id)).size() == 0 ? NO_SUCH_ITEM_FOUND : CATEGORIES_FOUND;
     }
 
     private void modifyRequestsInStates(long id, String request){
@@ -112,18 +114,24 @@ public class Bot {
         String hostLink = loader.getHostLink();
         HashMap<String, String> result = new HashMap<>();
         try {
-            String[] allLines = content.split("\n");
-            String trigger = String.format("<a href=\"%s/catalog", hostLink);
+            String[] allLines = content.substring(content.indexOf("Все товары категории")).split("\n");
+            String trigger = String.format("href=\"%s/catalog", hostLink);
             String currentReference = "";
             boolean triggered = false;
             for (String line: allLines){
                 if (line.contains(trigger)){
-                    currentReference = line.substring(line.indexOf(hostLink));
+                    currentReference = line.substring(line.indexOf(hostLink), line.indexOf("target")).strip();
                     triggered = true;
-                } else if (triggered){
-                    result.put(line.strip(),
+                } else if (triggered && line.contains("</a>")){
+                    if (line.contains("</span>"))
+                    {
+                        currentReference = "";
+                        triggered = false;
+                        continue;
+                    }
+                    result.put(line.strip().substring(1, line.strip().indexOf("<")),
                             currentReference.substring(currentReference.indexOf(hostLink)+hostLink.length(),
-                                                       currentReference.length()-2));
+                                                       currentReference.length()-1));
                     currentReference = "";
                     triggered = false;
                 }
@@ -137,19 +145,18 @@ public class Bot {
     private HashMap<String, String> getSubcategories(String request){
         String content = loader.getContent(String.format("/search/?text=%s", request));
         try {
-            String categoriesString = content.substring(content.indexOf("Найдено в категориях:"));
+            String categoriesString = content.substring(content.indexOf("Найдено в категориях"));
             String[] allLines = categoriesString.substring(0, categoriesString.indexOf("</div>")).split("\n");
             HashMap<String, String> categories = new HashMap<>();
+            String trigger = "<span class=\"SearchResults__item-count\">";
             String currentReference = "";
             for (String line : allLines) {
-                if (line.contains("data-search-text"))
-                    continue;
                 if (line.contains("href")) {
                     String link = line.substring(line.indexOf("\"") + 1);
                     currentReference = link.substring(0, link.indexOf("\"")).replace("&amp;", "&");
-                } else if (!line.contains(">")) {
+                } else if (line.contains(trigger)) {
                     String reference = URLDecoder.decode(currentReference, StandardCharsets.UTF_8);
-                    categories.put(line.strip(), String.format("%s%s", loader.getHostLink(),
+                    categories.put(line.substring(line.indexOf(">")+1, line.indexOf(trigger)).strip(), String.format("%s%s", loader.getHostLink(),
                             reference.substring(0, reference.indexOf("&text"))));
                     currentReference = "";
                 }
