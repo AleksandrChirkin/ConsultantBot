@@ -11,9 +11,9 @@ public class Bot {
     private static final String NO_SUCH_ITEM_FOUND = "Кажется, такого товара нет :(\n" +
             "Уберите один из ваших предыдущих запросов";
     private static final String CATEGORIES_FOUND = "Ваш товар найден в нескольких категориях.\n" +
-            "Нажмите на интересующую вас категорию.";
+            "Нажмите на интересующую вас категорию";
     private static final String START_RESPONSE = "Бот-консультант. Ищет нужный вам товар на citilink.ru\n" +
-            "Введите нужный вам товар:";
+            "Введите нужный вам товар";
 
     public Bot(DataLoader dataLoader, StatesOfUsers statesOfUsers){
         loader = dataLoader;
@@ -31,7 +31,7 @@ public class Bot {
             return callHost(id, request);
         } catch (Exception e){
             states.setItemsFound(id, false);
-            return "Произошла ошибка.\nПопробуйте еще раз или уберите один из Ваших предыдущих запросов";
+            return "Произошла ошибка\nПопробуйте еще раз или уберите один из ваших предыдущих запросов";
         }
     }
 
@@ -172,7 +172,7 @@ public class Bot {
     private String findItems(long id, String request) {
         String result = "";
         String content = loader.getContent(request);
-        if (!content.contains("Ваш запрос содержит менее 2 символов.")){
+        if (!content.contains("Ваш запрос содержит менее 2 символов")){
             String[] allLines = content.split("\n");
             ArrayList<String> lines = new ArrayList<>();
             String trigger = "data-params=\"";
@@ -204,7 +204,7 @@ public class Bot {
         String category = states.getCategory(userId);
         String hostLink = loader.getHostLink();
         return json.has("price")
-                ? String.format("<b><i>%s</i></b>\n<b>Бренд:</b>%s\n<b>Цена:</b>%d\n%s%s%s\n",
+                ? String.format("<b>%s</b>\n<b>Бренд:</b>%s\n<b>Цена:</b>%d\n%s%s%s\n",
                 json.get("shortName"), json.get("brandName"),
                 Integer.valueOf(json.get("price").toString()), hostLink, category, itemId)
                 : null;
