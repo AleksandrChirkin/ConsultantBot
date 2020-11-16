@@ -25,6 +25,8 @@ public class Bot {
         try {
             if (request.equals("/start"))
                 return START_RESPONSE;
+            if (request.length() < 2)
+                return "Ваш запрос содержит меньше 2 символов";
             modifyRequestsInStates(id, request);
             return callHost(id, request);
         } catch (Exception e){
@@ -202,7 +204,7 @@ public class Bot {
         String category = states.getCategory(userId);
         String hostLink = loader.getHostLink();
         return json.has("price")
-                ? String.format("<i>%s</i>\n<b>Бренд:</b>%s\n<b>Цена:</b>%d\n%s%s%s\n",
+                ? String.format("<b><i>%s</i></b>\n<b>Бренд:</b>%s\n<b>Цена:</b>%d\n%s%s%s\n",
                 json.get("shortName"), json.get("brandName"),
                 Integer.valueOf(json.get("price").toString()), hostLink, category, itemId)
                 : null;
