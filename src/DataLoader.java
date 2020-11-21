@@ -13,10 +13,10 @@ public class DataLoader {
         return hostLink;
     }
 
-    public String getContent(String txt){
+    public String getContent(String relativeQuery){
         HttpURLConnection connection = null;
         try {
-            URL url = new URL(String.format("%s%s", hostLink, parseQuery(txt)));
+            URL url = new URL(String.format("%s%s", hostLink, parseQuery(relativeQuery)));
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("POST");
             connection.setRequestProperty("Content-Type",
@@ -43,14 +43,14 @@ public class DataLoader {
         }
     }
 
-    private String parseQuery(String originalQuery){
+    private String parseQuery(String query){
         String separator = "text=";
-        int index = originalQuery.indexOf(separator);
+        int index = query.indexOf(separator);
         if (index != -1) {
-            String query = originalQuery.substring(index+separator.length());
-            return String.format("%s%s", originalQuery.substring(0, index+separator.length()),
-                    URLEncoder.encode(query, StandardCharsets.UTF_8));
+            String textPart = query.substring(index+separator.length());
+            return String.format("%s%s", query.substring(0, index+separator.length()),
+                    URLEncoder.encode(textPart, StandardCharsets.UTF_8));
         }
-        return originalQuery;
+        return query;
     }
 }

@@ -8,7 +8,6 @@ public class User {
     public long id;
     public List<String> requests;
     public Map<String, String> categoriesLinks;
-    public String category;
     public boolean areItemsFound;
     public User(){}
 
