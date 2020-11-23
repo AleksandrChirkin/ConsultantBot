@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.io.*;
+import java.util.List;
 
 class BotTest {
     private static Bot bot;
@@ -14,7 +15,7 @@ class BotTest {
     public static void setUp(){
         try {
             if (!file.createNewFile())
-                throw new IOException();
+                throw new IOException("Creation of database failed!");
             bot = new Bot(new DataLoader("https://www.citilink.ru"),
                     new StatesOfUsers("./src/testBase.json"));
         } catch(IOException e){
@@ -29,7 +30,7 @@ class BotTest {
         Assertions.assertEquals("Бот-консультант. Ищет нужный вам товар на https://www.citilink.ru",
                 executionResult[0]);
         Assertions.assertEquals("Для получения справки введите /help", executionResult[1]);
-        Assertions.assertEquals("Иначе введите нужную вам категорию товаров", executionResult[2]);
+        Assertions.assertEquals("Иначе введите нужный вам товар", executionResult[2]);
     }
 
     @Test
@@ -78,7 +79,18 @@ class BotTest {
     @Test
     void executeCut(){
         bot.execute(id, "смартфон");
+        bot.execute(id, "apple");
         bot.execute(id, "cut смартфон");
+        List<String> requests = bot.getRequests(id);
+        Assertions.assertEquals(1, requests.size());
+        Assertions.assertEquals("apple", requests.get(0));
+    }
+
+    @Test
+    void executeDelete(){
+        bot.execute(id, "смартфон");
+        bot.execute(id, "apple");
+        bot.execute(id, "delete");
         Assertions.assertEquals(0, bot.getRequests(id).size());
     }
 
