@@ -36,16 +36,17 @@ class BotTest {
     @Test
     void executeHelp(){
         String[] executionResult = bot.execute(id, "/help").split("\n");
-        Assertions.assertEquals(5, executionResult.length);
+        Assertions.assertEquals(6, executionResult.length);
         Assertions.assertEquals("Бот-консультант. Ищет нужный вам товар на https://www.citilink.ru",
                 executionResult[0]);
         Assertions.assertEquals("Чтобы бот мог принять ваш запрос, нужно, " +
                 "чтобы он удовлетворял следующим критериям:", executionResult[1]);
         Assertions.assertEquals("1. Он должен содержать не менее 2 символов", executionResult[2]);
         Assertions.assertEquals("2. Если это ваш первый запрос, то он не должен содержать конкретное название товара (например, iphone), " +
-                "компанию-производителя и другие характеристики вашего товара", executionResult[3]);
-        Assertions.assertEquals("3. Если бот выдал вам кнопки, то не стоит ничего вводить с клавиатуру -" +
-                " просто нажмите на нужную кнопку", executionResult[4]);
+                "компанию-производителя и другие характеристики вашего товара. Ему нужна только категория", executionResult[3]);
+        Assertions.assertEquals("3. Если бот выдал вам кнопки, но не выдал ссылки на товары, то не стоит ничего вводить с клавиатуры - " +
+                "просто нажмите на нужную кнопку", executionResult[4]);
+        Assertions.assertEquals("4. Если вы хотите сделать новый запрос, нажмите на кнопку \"Сделать новый запрос\"", executionResult[5]);
     }
 
     @Test

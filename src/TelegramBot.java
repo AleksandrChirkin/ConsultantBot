@@ -56,7 +56,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     private void setButtons(SendMessage message, long id, String userMessage){
         InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> keyboard;
-        if (userMessage.equals("/start"))
+        if (userMessage.equals("/start") || userMessage.equals("/help"))
             return;
         keyboard = new ArrayList<>();
         if (!bot.areItemsFound(id)){
@@ -80,7 +80,8 @@ public class TelegramBot extends TelegramLongPollingBot {
                 keyboard.add(row);
                 row.add(new InlineKeyboardButton().setText("Сделать новый запрос").setCallbackData("delete"));
             }
-        }
+        } else
+            return;
         message.setReplyMarkup(keyboardMarkup);
         keyboardMarkup.setKeyboard(keyboard);
     }
