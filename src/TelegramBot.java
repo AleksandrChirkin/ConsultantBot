@@ -58,25 +58,29 @@ public class TelegramBot extends TelegramLongPollingBot {
         List<List<InlineKeyboardButton>> keyboard;
         if (userMessage.equals("/start"))
             return;
+        keyboard = new ArrayList<>();
         if (!bot.areItemsFound(id)){
-            keyboard = new ArrayList<>();
             List<InlineKeyboardButton> row = new ArrayList<>();
             keyboard.add(row);
             for (String request: bot.getRequests(id)){
                 row.add(new InlineKeyboardButton().setText(request)
                         .setCallbackData(String.format("cut %s", request)));
             }
-        } else if (bot.isTheFirstRequest(id)) {
-            keyboard = new ArrayList<>();
+        } else if (!userMessage.equals("delete")) {
             Map<String, String> categories = bot.getCategories(id, userMessage);
-            for (String category: categories.keySet()){
+            if (bot.isTheFirstRequest(id) && !categories.isEmpty())
+                for (String category: categories.keySet()){
+                    List<InlineKeyboardButton> row = new ArrayList<>();
+                    keyboard.add(row);
+                    row.add(new InlineKeyboardButton().setText(category)
+                            .setCallbackData(categories.get(category)));
+                }
+            else {
                 List<InlineKeyboardButton> row = new ArrayList<>();
                 keyboard.add(row);
-                row.add(new InlineKeyboardButton().setText(category)
-                        .setCallbackData(categories.get(category)));
+                row.add(new InlineKeyboardButton().setText("Сделать новый запрос").setCallbackData("delete"));
             }
-        } else
-            return;
+        }
         message.setReplyMarkup(keyboardMarkup);
         keyboardMarkup.setKeyboard(keyboard);
     }

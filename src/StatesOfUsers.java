@@ -56,10 +56,13 @@ public class StatesOfUsers {
         return states.get(id).requests;
     }
 
-    public void clearRequests(long id){
+    public void clearRequests(long id, boolean deleteAll){
         User user = states.get(id);
         while (user.requests.size() > 1)
             user.requests.remove(0);
+        if (deleteAll)
+            user.requests.remove(0);
+        update();
     }
 
     public void addRequest(long id, String request){

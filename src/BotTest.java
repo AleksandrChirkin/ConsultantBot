@@ -19,7 +19,6 @@ class BotTest {
                     new StatesOfUsers("./src/testBase.json"));
         } catch(IOException e){
             throw new RuntimeException(e);
-            //Assertions.fail("Creating of database failed!");
         }
     }
 

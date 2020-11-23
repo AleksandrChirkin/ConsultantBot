@@ -22,7 +22,7 @@ public class HostLogic {
     public String callHost(long id, String request){
         if (!isTheFirstRequest(id)) {
             if (!getRelevantCategories(id, request).isEmpty()) {
-                states.clearRequests(id);
+                states.clearRequests(id, false);
                 return CATEGORIES_FOUND;
             }
             return findItems(id, String.format("/search/?text=%s", states.getCurrentRequest(id)));
