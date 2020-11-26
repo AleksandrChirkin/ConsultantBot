@@ -8,6 +8,7 @@ import java.util.List;
 
 class BotTest {
     private static Bot bot;
+    private static StatesOfUsers states;
     private static final File file = new File("./src/testBase.json");
     private static final long id = Long.MAX_VALUE;
 
@@ -16,8 +17,8 @@ class BotTest {
         try {
             if (!file.createNewFile())
                 throw new IOException("Creation of database failed!");
-            bot = new Bot(new DataLoader("https://www.citilink.ru"),
-                    new StatesOfUsers("./src/testBase.json"));
+            states = new StatesOfUsers("./src/testBase.json");
+            bot = new Bot(new DataLoader("https://www.citilink.ru"), states);
         } catch(IOException e){
             throw new RuntimeException(e);
         }
@@ -25,7 +26,7 @@ class BotTest {
 
     @Test
     void executeStart() {
-        String[] executionResult = bot.execute(id, "/start").split("\n");
+        String[] executionResult = bot.execute(id, "/start").getResponse().split("\n");
         Assertions.assertEquals(3, executionResult.length);
         Assertions.assertEquals("Бот-консультант. Ищет нужный вам товар на https://www.citilink.ru",
                 executionResult[0]);
@@ -35,7 +36,7 @@ class BotTest {
 
     @Test
     void executeHelp(){
-        String[] executionResult = bot.execute(id, "/help").split("\n");
+        String[] executionResult = bot.execute(id, "/help").getResponse().split("\n");
         Assertions.assertEquals(5, executionResult.length);
         Assertions.assertEquals("Бот-консультант. Ищет нужный вам товар на https://www.citilink.ru",
                 executionResult[0]);
@@ -50,30 +51,30 @@ class BotTest {
 
     @Test
     void executeShort(){
-        String executionResult = bot.execute(id, "a");
+        String executionResult = bot.execute(id, "a").getResponse();
         Assertions.assertEquals("Ваш запрос содержит менее 2 символов", executionResult);
     }
 
     @Test
     void executeFirst(){
-        String executionResult = bot.execute(id, "ноутбук");
+        String executionResult = bot.execute(id, "ноутбук").getResponse();
         Assertions.assertEquals("Ваш товар найден в нескольких категориях.\n" +
                 "Нажмите на интересующую вас категорию", executionResult);
-        Assertions.assertTrue(bot.getCategories(id, "ноутбук").size() >= 1);
+        Assertions.assertTrue(states.getCategoriesLinks(id).size() >= 1);
     }
 
     @Test
     void executeMany(){
         bot.execute(id, "наушники");
-        String executionResult = bot.execute(id, "/catalog/mobile/handsfree/");
-        Assertions.assertTrue(bot.isTheFirstRequest(id));
-        if (bot.areItemsFound(id)) {
+        String executionResult = bot.execute(id, "/catalog/mobile/handsfree/").getResponse();
+        Assertions.assertEquals(1, states.getRequests(id).size());
+        if (states.getItemsFound(id)) {
             Assertions.assertTrue(executionResult.contains("Результаты поиска:"));
             Assertions.assertTrue(executionResult.contains("Нажмите на интересующую вас ссылку или введите уточняющий запрос"));
         } else
             Assertions.assertTrue(executionResult.contains("Уберите один из ваших предыдущих запросов"));
         bot.execute(id, "xiaomi");
-        Assertions.assertFalse(bot.isTheFirstRequest(id));
+        Assertions.assertEquals(2, states.getRequests(id).size());
     }
 
     @Test
@@ -81,7 +82,7 @@ class BotTest {
         bot.execute(id, "смартфон");
         bot.execute(id, "apple");
         bot.execute(id, "cut смартфон");
-        List<String> requests = bot.getRequests(id);
+        List<String> requests = states.getRequests(id);
         Assertions.assertEquals(1, requests.size());
         Assertions.assertEquals("apple", requests.get(0));
     }
@@ -91,7 +92,7 @@ class BotTest {
         bot.execute(id, "смартфон");
         bot.execute(id, "apple");
         bot.execute(id, "delete");
-        Assertions.assertEquals(0, bot.getRequests(id).size());
+        Assertions.assertEquals(0, states.getRequests(id).size());
     }
 
     @AfterAll

@@ -1,37 +1,36 @@
 import org.json.JSONObject;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
-public class HostLogic {
+public class CitilinkParser {
     private final DataLoader loader;
     private final StatesOfUsers states;
-    private final HashMap<String, String> categories;
-    private static final String NO_SUCH_ITEM_FOUND = "Кажется, такого товара нет :(\n" +
-            "Уберите один из ваших предыдущих запросов";
-    private static final String CATEGORIES_FOUND = "Ваш товар найден в нескольких категориях.\n" +
-            "Нажмите на интересующую вас категорию";
+    private final HashMap<String, String> categoriesAndURLS;
 
-    public HostLogic(DataLoader dataLoader, StatesOfUsers statesOfUsers){
+    public CitilinkParser(DataLoader dataLoader, StatesOfUsers statesOfUsers){
         loader = dataLoader;
         states = statesOfUsers;
-        categories = getAllCategories();
+        categoriesAndURLS = getAllCategories();
     }
 
     public String callHost(long id, String request){
         if (!isTheFirstRequest(id)) {
             if (!getRelevantCategories(id, request).isEmpty()) {
                 states.clearRequests(id, false);
-                return CATEGORIES_FOUND;
+                return ResponseString.CATEGORIES_FOUND.toString();
             }
-            return findItems(id, String.format("/search/?text=%s", states.getCurrentRequest(id)));
+            return findItems(id, String.format("/search/?text=%s",
+                    URLEncoder.encode(states.getCurrentRequest(id), StandardCharsets.UTF_8)));
         }
         if (request.contains("/catalog")){
             states.clearCategoriesLinks(id);
             return findItems(id, request);
         }
-        return getRelevantCategories(id, states.getCurrentRequest(id)).isEmpty() ? NO_SUCH_ITEM_FOUND : CATEGORIES_FOUND;
+        return getRelevantCategories(id, states.getCurrentRequest(id)).isEmpty()
+                ? String.format("%s\n%s", ResponseString.NO_SUCH_ITEM_FOUND, ResponseString.USER_ACTION_REQUEST)
+                : ResponseString.CATEGORIES_FOUND.toString();
     }
 
     public List<String> getRequests(long id){
@@ -44,7 +43,7 @@ public class HostLogic {
 
     private HashMap<String, String> getAllCategories(){
         String content = loader.getContent("/catalog/");
-        String hostLink = loader.getHostLink();
+        String hostLink = loader.getHostURL();
         HashMap<String, String> result = new HashMap<>();
         try {
             String[] allLines = content.substring(content.indexOf("Все товары категории")).split("\n");
@@ -79,11 +78,11 @@ public class HostLogic {
     private HashMap<String, String> getRelevantCategories(long id, String request){
         HashMap<String, String> relevantCategories = new HashMap<>();
         String[] words = request.split(" ");
-        for (String category: categories.keySet())
+        for (String category: categoriesAndURLS.keySet())
             for (String item: category.split(" "))
                 for (String word: words)
                     if (item.toLowerCase().contains(word.toLowerCase()))
-                        relevantCategories.put(category, categories.get(category));
+                        relevantCategories.put(category, categoriesAndURLS.get(category));
         states.updateCategoriesLinks(id, relevantCategories);
         states.setItemsFound(id, !relevantCategories.isEmpty());
         return relevantCategories;
@@ -93,28 +92,13 @@ public class HostLogic {
         String result = "";
         String content = loader.getContent(request);
         if (!content.contains("содержит менее 2 символов") && !content.contains("ничего не найдено")){
-            String[] allLines = content.split("\n");
-            ArrayList<String> lines = new ArrayList<>();
-            ArrayList<String> links = new ArrayList<>();
-            String trigger = "data-params=\"";
-            boolean triggered = false;
-            for (String line: allLines) {
-                if (line.contains(trigger)) {
-                    lines.add(line.substring(line.indexOf(trigger) + trigger.length()));
-                    triggered = true;
-                } else if (triggered && line.contains("href")){
-                    String link = line.substring(line.indexOf("=")+2);
-                    links.add(link.substring(0, link.indexOf("\"")));
-                    triggered = false;
-                }
-            }
+            HashMap<String, String> links = getLinks(content);
             StringBuilder builder = new StringBuilder();
-            for (int i = 0; i < lines.size(); i+=2) {
-                String line = lines.get(i);
-                String processedLine = getItemInfo(line);
+            for (String link: links.keySet()) {
+                String processedLine = getItemInfo(link);
                 if (processedLine != null && processedLine.length()+builder.length() <= 4096) {
                     builder.append(processedLine);
-                    builder.append(String.format("%s%s", loader.getHostLink(), links.get(i)));
+                    builder.append(String.format("%s%s", loader.getHostURL(), links.get(link)));
                     builder.append("\n\n");
                 }
             }
@@ -122,17 +106,35 @@ public class HostLogic {
         }
         states.setItemsFound(id, !result.isEmpty());
         return result.equals("")
-                ? "Кажется, такого товара нет :(\nУберите один из ваших предыдущих запросов"
-                : String.format("Результаты поиска:\n%s\n" +
-                        "Нажмите на интересующую вас ссылку или введите уточняющий запрос",
-                result);
+                ? String.format("%s\n%s", ResponseString.NO_SUCH_ITEM_FOUND, ResponseString.USER_ACTION_REQUEST)
+                : String.format(StringToken.SEARCH_RESULTS_TOKEN.toString(), result);
+    }
+
+    private HashMap<String, String> getLinks(String content){
+        String[] allLines = content.split("\n");
+        HashMap <String, String> linksMap = new HashMap<>();
+        String trigger = "data-params=\"";
+        boolean triggered = false;
+        String currentItem = "";
+        for (String line: allLines) {
+            if (line.contains(trigger)) {
+                currentItem = line.substring(line.indexOf(trigger) + trigger.length());
+                triggered = true;
+            } else if (triggered && line.contains("href")){
+                String link = line.substring(line.indexOf("=")+2);
+                linksMap.put(currentItem, link.substring(0, link.indexOf("\"")));
+                currentItem = "";
+                triggered = false;
+            }
+        }
+        return linksMap;
     }
 
     private String getItemInfo(String line) {
         line = line.replace("&quot;", "\"");
         JSONObject json = new JSONObject(line);
         return json.has("price") && Integer.parseInt(json.get("price").toString()) > 0
-                ? String.format("<b>%s</b>\n<b>Бренд:</b>%s\n<b>Цена:</b>%d\n",
+                ? String.format(StringToken.ITEM_INFO_TOKEN.toString(),
                 json.get("shortName"), json.get("brandName"), Integer.valueOf(json.get("price").toString()))
                 : null;
     }

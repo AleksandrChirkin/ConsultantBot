@@ -36,16 +36,16 @@ public class TelegramBot extends TelegramLongPollingBot {
             userMessage = msg.getText().toLowerCase();
             id = msg.getChatId();
         }
-        String response = bot.execute(id, userMessage);
-        sendResponse(id, userMessage, response);
+        BotResponse response = bot.execute(id, userMessage);
+        sendResponse(id, response);
     }
 
-    private void sendResponse(long id, String userMessage, String response){
+    private void sendResponse(long id, BotResponse response){
         SendMessage message = new SendMessage();
         message.enableHtml(true);
         message.setChatId(id);
-        message.setText(response);
-        setButtons(message, id, userMessage);
+        message.setText(response.getResponse());
+        setButtons(message, response);
         try{
             execute(message);
         } catch (TelegramApiException e){
@@ -53,33 +53,17 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
-    private void setButtons(SendMessage message, long id, String userMessage){
-        InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
-        List<List<InlineKeyboardButton>> keyboard;
-        if (userMessage.equals("/start"))
+    private void setButtons(SendMessage message, BotResponse response){
+        HashMap<String, String> buttonInfo = response.getButtonInfo();
+        if (buttonInfo == null)
             return;
-        keyboard = new ArrayList<>();
-        if (!bot.areItemsFound(id)){
+        InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+        for (String infoItem: buttonInfo.keySet()){
             List<InlineKeyboardButton> row = new ArrayList<>();
             keyboard.add(row);
-            for (String request: bot.getRequests(id)){
-                row.add(new InlineKeyboardButton().setText(request)
-                        .setCallbackData(String.format("cut %s", request)));
-            }
-        } else if (!userMessage.equals("delete")) {
-            Map<String, String> categories = bot.getCategories(id, userMessage);
-            if (bot.isTheFirstRequest(id) && !categories.isEmpty())
-                for (String category: categories.keySet()){
-                    List<InlineKeyboardButton> row = new ArrayList<>();
-                    keyboard.add(row);
-                    row.add(new InlineKeyboardButton().setText(category)
-                            .setCallbackData(categories.get(category)));
-                }
-            else {
-                List<InlineKeyboardButton> row = new ArrayList<>();
-                keyboard.add(row);
-                row.add(new InlineKeyboardButton().setText("Сделать новый запрос").setCallbackData("delete"));
-            }
+            row.add(new InlineKeyboardButton().setText(infoItem)
+                    .setCallbackData(buttonInfo.get(infoItem)));
         }
         message.setReplyMarkup(keyboardMarkup);
         keyboardMarkup.setKeyboard(keyboard);

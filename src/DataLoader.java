@@ -1,22 +1,21 @@
 import java.io.*;
 import java.net.*;
-import java.nio.charset.StandardCharsets;
 
 public class DataLoader {
-    private final String hostLink;
+    private final String hostURL;
 
     public DataLoader(String host){
-        hostLink = host;
+        hostURL = host;
     }
 
-    public String getHostLink() {
-        return hostLink;
+    public String getHostURL() {
+        return hostURL;
     }
 
     public String getContent(String relativeQuery){
         HttpURLConnection connection = null;
         try {
-            URL url = new URL(String.format("%s%s", hostLink, parseQuery(relativeQuery)));
+            URL url = new URL(String.format("%s%s", hostURL, relativeQuery));
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("POST");
             connection.setRequestProperty("Content-Type",
@@ -41,16 +40,5 @@ public class DataLoader {
             if (connection != null)
                 connection.disconnect();
         }
-    }
-
-    private String parseQuery(String query){
-        String separator = "text=";
-        int index = query.indexOf(separator);
-        if (index != -1) {
-            String textPart = query.substring(index+separator.length());
-            return String.format("%s%s", query.substring(0, index+separator.length()),
-                    URLEncoder.encode(textPart, StandardCharsets.UTF_8));
-        }
-        return query;
     }
 }
