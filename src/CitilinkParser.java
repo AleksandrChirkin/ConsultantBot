@@ -92,13 +92,13 @@ public class CitilinkParser {
         String result = "";
         String content = loader.getContent(request);
         if (!content.contains("содержит менее 2 символов") && !content.contains("ничего не найдено")){
-            HashMap<String, String> links = getLinks(content);
+            HashMap<String, String> itemsAndLinks = getLinks(content);
             StringBuilder builder = new StringBuilder();
-            for (String link: links.keySet()) {
+            for (String link: itemsAndLinks.keySet()) {
                 String processedLine = getItemInfo(link);
                 if (processedLine != null && processedLine.length()+builder.length() <= 4096) {
                     builder.append(processedLine);
-                    builder.append(String.format("%s%s", loader.getHostURL(), links.get(link)));
+                    builder.append(String.format("%s%s", loader.getHostURL(), itemsAndLinks.get(link)));
                     builder.append("\n\n");
                 }
             }

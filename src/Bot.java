@@ -28,7 +28,7 @@ public class Bot {
             if (request.length() < 2)
                 return ResponseString.LESS_THAN_TWO_WORDS.toString();
             if (request.equals("/delete") && states.getRequests(id).isEmpty() ||
-                    request.contains("/cut") && states.hasRequest(id, request.substring(4)))
+                    request.contains("/cut") && !states.hasRequest(id, request.substring(5)))
                 return null;
             modifyRequestsInStates(id, request);
             if (states.getRequests(id).isEmpty())
@@ -66,7 +66,7 @@ public class Bot {
         if (!states.containsKey(id))
             states.put(id);
         if (request.contains("/cut"))
-            states.removeRequest(id, request.substring(4));
+            states.removeRequest(id, request.substring(5));
         else if (request.equals("/delete"))
             states.clearRequests(id, true);
         else

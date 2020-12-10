@@ -59,9 +59,12 @@ class BotTest {
     void executeMany(){
         ArrayList<ButtonInfo> buttons = bot.execute(testID, "наушники").getButtons();
         Assertions.assertTrue(buttons.size() > 0);
-        Assertions.assertTrue(buttons.get(0).getTitle().contains("наушники"));
+        Assertions.assertTrue(buttons.get(0).getTitle().contains("Наушники"));
         String response = bot.execute(testID, "/catalog/mobile/handsfree/").getResponse();
-        Assertions.assertEquals(String.format(StringToken.SEARCH_RESULTS_TOKEN.toString(), "какие-то наушники"), response);
+        Assertions.assertEquals(String.format(StringToken.SEARCH_RESULTS_TOKEN.toString(),
+                String.format(StringToken.ITEM_INFO_TOKEN.toString() +
+                        String.format("%s/409240/\n\n", testHostName), "какие-то наушники", "какой-то бренд", 100)),
+                response);
     }
 
     @Test
@@ -71,6 +74,7 @@ class BotTest {
         ArrayList<ButtonInfo> buttons = bot.execute(testID, "/cut смартфон").getButtons();
         Assertions.assertEquals(1, buttons.size());
         Assertions.assertEquals("apple", buttons.get(0).getTitle());
+        Assertions.assertEquals("/cut apple", buttons.get(0).getCallback());
         String doubleCutResponse = bot.execute(testID, "/cut cмартфон").getResponse();
         Assertions.assertNull(doubleCutResponse);
     }
@@ -84,6 +88,14 @@ class BotTest {
         Assertions.assertEquals(0, finalResponse.getButtons().size());
         String doubleDeleteResponse = bot.execute(testID, "/delete").getResponse();
         Assertions.assertNull(doubleDeleteResponse);
+    }
+
+    @Test
+    void executeQueryReturningNothing(){
+        bot.execute(testID,"/delete");
+        ArrayList<ButtonInfo> buttons = bot.execute(testID, "что-нибудь").getButtons();
+        Assertions.assertEquals(1, buttons.size());
+        Assertions.assertEquals("что-нибудь", buttons.get(0).getTitle());
     }
 
     @AfterAll
@@ -110,7 +122,9 @@ class BotTest {
 
         @Override
         public String getContent(String relativeQuery) {
-            return null;
+            if (relativeQuery.equals("/catalog/"))
+                return ResponseString.TEST_INITIAL_RESPONSE.toString();
+            return ResponseString.TEST_RESPONSE.toString();
         }
     }
 }
