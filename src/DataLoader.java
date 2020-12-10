@@ -1,17 +1,19 @@
 import java.io.*;
 import java.net.*;
 
-public class DataLoader {
+public class DataLoader implements Loader {
     private final String hostURL;
 
     public DataLoader(String host){
         hostURL = host;
     }
 
+    @Override
     public String getHostURL() {
         return hostURL;
     }
 
+    @Override
     public String getContent(String relativeQuery){
         HttpURLConnection connection = null;
         try {

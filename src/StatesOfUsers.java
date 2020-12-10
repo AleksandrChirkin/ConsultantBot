@@ -78,6 +78,10 @@ public class StatesOfUsers {
         update();
     }
 
+    public boolean hasRequest(long id, String request){
+        return states.get(id).requests.contains(request);
+    }
+
     public boolean getItemsFound(long id){
         return states.get(id).areItemsFound;
     }

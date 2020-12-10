@@ -54,16 +54,16 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private void setButtons(SendMessage message, BotResponse response){
-        HashMap<String, String> buttonInfo = response.getButtonInfo();
-        if (buttonInfo == null)
+        ArrayList<ButtonInfo> buttons = response.getButtons();
+        if (buttons == null)
             return;
         InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
-        for (String infoItem: buttonInfo.keySet()){
+        for (ButtonInfo button: buttons){
             List<InlineKeyboardButton> row = new ArrayList<>();
             keyboard.add(row);
-            row.add(new InlineKeyboardButton().setText(infoItem)
-                    .setCallbackData(buttonInfo.get(infoItem)));
+            row.add(new InlineKeyboardButton().setText(button.getTitle())
+                    .setCallbackData(button.getCallback()));
         }
         message.setReplyMarkup(keyboardMarkup);
         keyboardMarkup.setKeyboard(keyboard);

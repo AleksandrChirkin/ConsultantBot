@@ -4,21 +4,22 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.io.*;
-import java.util.List;
+import java.util.ArrayList;
 
 class BotTest {
     private static Bot bot;
-    private static StatesOfUsers states;
-    private static final File file = new File("./src/testBase.json");
-    private static final long id = Long.MAX_VALUE;
+    private static final String testHostName = "test.org";
+    private static final String testBaseAddress = "./src/testBase.json";
+    private static final File testFile = new File(testBaseAddress);
+    private static final long testID = Long.MAX_VALUE;
 
     @BeforeAll
     public static void setUp(){
         try {
-            if (!file.createNewFile())
+            if (!testFile.createNewFile())
                 throw new IOException("Creation of database failed!");
-            states = new StatesOfUsers("./src/testBase.json");
-            bot = new Bot(new DataLoader("https://www.citilink.ru"), states);
+            StatesOfUsers states = new StatesOfUsers(testBaseAddress);
+            bot = new Bot(new TestLoader(testHostName), states);
         } catch(IOException e){
             throw new RuntimeException(e);
         }
@@ -26,82 +27,90 @@ class BotTest {
 
     @Test
     void executeStart() {
-        String[] executionResult = bot.execute(id, "/start").getResponse().split("\n");
-        Assertions.assertEquals(3, executionResult.length);
-        Assertions.assertEquals("Бот-консультант. Ищет нужный вам товар на https://www.citilink.ru",
-                executionResult[0]);
-        Assertions.assertEquals("Для получения справки введите /help", executionResult[1]);
-        Assertions.assertEquals("Иначе введите нужный вам товар", executionResult[2]);
+        String executionResult = bot.execute(testID, "/start").getResponse();
+        String botIntroduction = String.format(StringToken.BOT_INTRODUCTION_TOKEN.toString(),
+                testHostName);
+        Assertions.assertEquals(String.format(StringToken.START_MESSAGE_TOKEN.toString(),
+                botIntroduction, ResponseString.QUERY_PROMPT), executionResult);
     }
 
     @Test
     void executeHelp(){
-        String[] executionResult = bot.execute(id, "/help").getResponse().split("\n");
-        Assertions.assertEquals(5, executionResult.length);
-        Assertions.assertEquals("Бот-консультант. Ищет нужный вам товар на https://www.citilink.ru",
-                executionResult[0]);
-        Assertions.assertEquals("Чтобы бот мог принять ваш запрос, нужно, " +
-                "чтобы он удовлетворял следующим критериям:", executionResult[1]);
-        Assertions.assertEquals("1. Он должен содержать не менее 2 символов", executionResult[2]);
-        Assertions.assertEquals("2. Если это ваш первый запрос, то он не должен содержать конкретное название товара (например, iphone), " +
-                "компанию-производителя и другие характеристики вашего товара", executionResult[3]);
-        Assertions.assertEquals("3. Если бот выдал вам кнопки, то не стоит ничего вводить с клавиатуры -" +
-                " просто нажмите на нужную кнопку", executionResult[4]);
+        String executionResult = bot.execute(testID, "/help").getResponse();
+        String botIntroduction = String.format(StringToken.BOT_INTRODUCTION_TOKEN.toString(),
+                testHostName);
+        Assertions.assertEquals(String.format(StringToken.HELP_MESSAGE_TOKEN.toString(),
+                botIntroduction), executionResult);
     }
 
     @Test
     void executeShort(){
-        String executionResult = bot.execute(id, "a").getResponse();
-        Assertions.assertEquals("Ваш запрос содержит менее 2 символов", executionResult);
+        String executionResult = bot.execute(testID, "a").getResponse();
+        Assertions.assertEquals(ResponseString.LESS_THAN_TWO_WORDS.toString(), executionResult);
     }
 
     @Test
     void executeFirst(){
-        String executionResult = bot.execute(id, "ноутбук").getResponse();
-        Assertions.assertEquals("Ваш товар найден в нескольких категориях.\n" +
-                "Нажмите на интересующую вас категорию", executionResult);
-        Assertions.assertTrue(states.getCategoriesLinks(id).size() >= 1);
+        String executionResult = bot.execute(testID, "ноутбук").getResponse();
+        Assertions.assertEquals(ResponseString.CATEGORIES_FOUND.toString(), executionResult);
     }
 
     @Test
     void executeMany(){
-        bot.execute(id, "наушники");
-        String executionResult = bot.execute(id, "/catalog/mobile/handsfree/").getResponse();
-        Assertions.assertEquals(1, states.getRequests(id).size());
-        if (states.getItemsFound(id)) {
-            Assertions.assertTrue(executionResult.contains("Результаты поиска:"));
-            Assertions.assertTrue(executionResult.contains("Нажмите на интересующую вас ссылку или введите уточняющий запрос"));
-        } else
-            Assertions.assertTrue(executionResult.contains("Уберите один из ваших предыдущих запросов"));
-        bot.execute(id, "xiaomi");
-        Assertions.assertEquals(2, states.getRequests(id).size());
+        ArrayList<ButtonInfo> buttons = bot.execute(testID, "наушники").getButtons();
+        Assertions.assertTrue(buttons.size() > 0);
+        Assertions.assertTrue(buttons.get(0).getTitle().contains("наушники"));
+        String response = bot.execute(testID, "/catalog/mobile/handsfree/").getResponse();
+        Assertions.assertEquals(String.format(StringToken.SEARCH_RESULTS_TOKEN.toString(), "какие-то наушники"), response);
     }
 
     @Test
     void executeCut(){
-        bot.execute(id, "смартфон");
-        bot.execute(id, "apple");
-        bot.execute(id, "cut смартфон");
-        List<String> requests = states.getRequests(id);
-        Assertions.assertEquals(1, requests.size());
-        Assertions.assertEquals("apple", requests.get(0));
+        bot.execute(testID, "смартфон");
+        bot.execute(testID, "apple");
+        ArrayList<ButtonInfo> buttons = bot.execute(testID, "/cut смартфон").getButtons();
+        Assertions.assertEquals(1, buttons.size());
+        Assertions.assertEquals("apple", buttons.get(0).getTitle());
+        String doubleCutResponse = bot.execute(testID, "/cut cмартфон").getResponse();
+        Assertions.assertNull(doubleCutResponse);
     }
 
     @Test
     void executeDelete(){
-        bot.execute(id, "смартфон");
-        bot.execute(id, "apple");
-        bot.execute(id, "delete");
-        Assertions.assertEquals(0, states.getRequests(id).size());
+        bot.execute(testID, "смартфон");
+        bot.execute(testID, "apple");
+        BotResponse finalResponse = bot.execute(testID, "/delete");
+        Assertions.assertEquals(ResponseString.QUERY_PROMPT.toString(), finalResponse.getResponse());
+        Assertions.assertEquals(0, finalResponse.getButtons().size());
+        String doubleDeleteResponse = bot.execute(testID, "/delete").getResponse();
+        Assertions.assertNull(doubleDeleteResponse);
     }
 
     @AfterAll
     public static void tearDown(){
         try {
-            if (!file.delete())
+            if (!testFile.delete())
                 throw new IOException("Deletion of database failed!");
         } catch (IOException e){
             throw new RuntimeException(e);
+        }
+    }
+
+    private static class TestLoader implements Loader{
+        private final String hostURL;
+
+        public TestLoader(String hostName){
+            hostURL = hostName;
+        }
+
+        @Override
+        public String getHostURL() {
+            return hostURL;
+        }
+
+        @Override
+        public String getContent(String relativeQuery) {
+            return null;
         }
     }
 }

@@ -5,11 +5,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class CitilinkParser {
-    private final DataLoader loader;
+    private final Loader loader;
     private final StatesOfUsers states;
     private final HashMap<String, String> categoriesAndURLS;
 
-    public CitilinkParser(DataLoader dataLoader, StatesOfUsers statesOfUsers){
+    public CitilinkParser(Loader dataLoader, StatesOfUsers statesOfUsers){
         loader = dataLoader;
         states = statesOfUsers;
         categoriesAndURLS = getAllCategories();
