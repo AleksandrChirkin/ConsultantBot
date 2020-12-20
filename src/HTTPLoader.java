@@ -1,10 +1,10 @@
 import java.io.*;
 import java.net.*;
 
-public class DataLoader implements Loader {
+public class HTTPLoader implements Loader {
     private final String hostURL;
 
-    public DataLoader(String host){
+    public HTTPLoader(String host){
         hostURL = host;
     }
 

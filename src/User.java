@@ -12,8 +12,8 @@ public class User {
     public User(){}
 
     @JsonIgnore
-    public User(long id){
-        this.id = id;
+    public User(long userId){
+        id = userId;
         requests = new ArrayList<>();
         categoriesLinks = new HashMap<>();
     }

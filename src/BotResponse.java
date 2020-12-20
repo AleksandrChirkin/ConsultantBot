@@ -3,9 +3,10 @@ import java.util.ArrayList;
 public class BotResponse {
     private final String response;
     private final ArrayList<ButtonInfo> buttons;
+
     public BotResponse(String responseString, ArrayList<ButtonInfo> buttonInfos){
-        this.response = responseString;
-        this.buttons = buttonInfos;
+        response = responseString;
+        buttons = buttonInfos;
     }
 
     public String getResponse(){

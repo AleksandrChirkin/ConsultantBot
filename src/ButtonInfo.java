@@ -3,8 +3,8 @@ public class ButtonInfo {
     private final String callback;
 
     public ButtonInfo(String titleString, String callbackString){
-        this.title = titleString;
-        this.callback = callbackString;
+        title = titleString;
+        callback = callbackString;
     }
 
     public String getTitle() {

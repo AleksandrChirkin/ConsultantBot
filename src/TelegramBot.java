@@ -16,7 +16,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     private static Bot bot;
 
     public static void main(String[] a) throws TelegramApiRequestException {
-        bot = new Bot(new DataLoader("https://www.citilink.ru"),
+        bot = new Bot(new HTTPLoader("https://www.citilink.ru"),
                 new StatesOfUsers("./src/statesOfUsers.json"));
         ApiContextInitializer.init();
         TelegramBotsApi botsApi = new TelegramBotsApi();
